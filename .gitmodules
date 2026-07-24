@@ -1,0 +1,3 @@
+[submodule "REFrameworkLuaTypedef"]
+	path = REFrameworkLuaTypedef
+	url = git@github.com:kmy0/REFrameworkLuaTypedef.git
