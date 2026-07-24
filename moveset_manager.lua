@@ -122,34 +122,24 @@ function Moveset:get_swap(category, index)
   end
 end
 
----@return string
-function Moveset:get_id()
-  return string.format("%s - %s", weapon_name[self.weapon], self.name)
-end
+---@class WeaponMovesets
+---@field movesets Moveset[]
+---@field active integer?
 
 ---@class Manager
----@field enabled table<string, Moveset>
----@field disabled table<string, Moveset>
+---@field weapons table<Weapon, WeaponMovesets>
 ---@field errors string[]
 local Manager = {}
 Manager.__index = Manager
 
 ---@return Manager
 function Manager.new()
-  return setmetatable({ enabled = {}, disabled = {}, errors = {} }, Manager)
+  return setmetatable({ weapons = {}, errors = {} }, Manager)
 end
 
 function Manager:clear()
-  self.enabled = {}
-  self.disabled = {}
+  self.weapons = {}
   self.errors = {}
-end
-
-function Manager:init_defaults()
-  for i = 1, 13, 1 do
-    local moveset = Moveset.new("Vanilla", i, {})
-    self.enabled[moveset:get_id()] = moveset
-  end
 end
 
 function Manager:load_movesets()
@@ -169,66 +159,21 @@ end
 ---@param moveset Moveset
 ---@return boolean success
 function Manager:register(moveset)
-  local id = moveset:get_id()
+  if not self.weapons[moveset.weapon] then
+    self.weapons[moveset.weapon] = { movesets = {}, active = nil }
+  end
+  local tbl = self.weapons[moveset.weapon]
+
   -- Check for duplicate moveset names
-  for name, _ in pairs(self.enabled) do
-    if name == id then
-      self.errors[#self.errors + 1] = string.format("Tried to register moveset '%s' twice", id)
-      return false
-    end
-  end
-  for name, _ in pairs(self.disabled) do
-    if name == id then
-      self.errors[#self.errors + 1] = string.format("Tried to register moveset '%s' twice", id)
+  for name, _ in pairs(tbl) do
+    if name == moveset.name then
+      self.errors[#self.errors + 1] = string.format("Tried to register moveset '%s' twice", moveset.name)
       return false
     end
   end
 
-  if self:can_enable(moveset) then
-    self.enabled[id] = moveset
-  else
-    self.disabled[id] = moveset
-  end
+  tbl.movesets[#tbl.movesets + 1] = moveset
 
-  return true
-end
-
----@param moveset Moveset
----@return boolean, string? error
-function Manager:can_enable(moveset)
-  for other, omv in pairs(self.enabled) do
-    if moveset.weapon == omv.weapon then
-      local error = string.format(
-        "Can't enable '%s' as another moveset for the same weapon is already enabled ('%s')", moveset:get_id(), other)
-      return false, error
-    end
-  end
-  return true
-end
-
----@param name string
----@param enable boolean
----@return boolean sucess
-function Manager:toggle(name, enable)
-  if not enable then
-    if not self.enabled[name] then
-      self.errors[#self.errors + 1] = string.format("'%s' is not enabled and cannot be disabled", name)
-      return false
-    end
-    self.disabled[name], self.enabled[name] = self.enabled[name], nil
-  else
-    if not self.disabled[name] then
-      self.errors[#self.errors + 1] = string.format("'%s' is not disabled and cannot be enabled", name)
-      return false
-    end
-
-    local can_enable, err = self:can_enable(self.disabled[name])
-    if can_enable then
-      self.enabled[name], self.disabled[name] = self.disabled[name], nil
-    else
-      self.errors[#self.errors + 1] = err
-    end
-  end
   return true
 end
 
@@ -237,24 +182,26 @@ function Manager:draw_ui()
     imgui.text("Error: " .. self.errors[#self.errors])
   end
 
-  local entries = {}
-  for name, _ in pairs(self.enabled) do
-    entries[name] = true
-  end
-  for name, _ in pairs(self.disabled) do
-    entries[name] = false
-  end
+  for weapon, tbl in pairs(self.weapons) do
+    ---@type string[]
+    local names = { "Vanilla" }
+    for _, mv in ipairs(tbl.movesets) do
+      names[#names + 1] = mv.name
+    end
 
-  for name, enabled in pairs(entries) do
-    local changed, enable = imgui.checkbox(name, enabled)
+    local changed, selection = imgui.combo(weapon_name[weapon], (tbl.active or 0) + 1, names)
     if changed then
-      self:toggle(name, enable)
+      print(selection)
+      if selection == 1 then
+        tbl.active = nil
+      else
+        tbl.active = selection - 1
+      end
     end
   end
 end
 
 local manager = Manager.new()
-manager:init_defaults()
 manager:load_movesets()
 
 local hunter_type = sdk.find_type_definition("app.HunterCharacter")
@@ -281,9 +228,9 @@ if change_action_req_method then
       local index = sdk.get_native_field(action_id, action_id_type, "_Index")
       current_action = { category = category, index = index }
 
-      for _, moveset in pairs(manager.enabled) do
-        if moveset.weapon ~= weapon_type then goto continue end
-
+      local tbl = manager.weapons[weapon_type]
+      if tbl and tbl.active then
+        local moveset = tbl.movesets[tbl.active]
         local action = moveset:get_swap(category, index)
         if action then
           sdk.set_native_field(action_id, action_id_type, "_Category", action[1])
@@ -293,8 +240,6 @@ if change_action_req_method then
             args[3], action_id, args[5])
           return sdk.PreHookResult.SKIP_ORIGINAL
         end
-
-        ::continue::
       end
     end
   end)
@@ -302,14 +247,14 @@ end
 
 re.on_draw_ui(function()
   if imgui.tree_node("Moveset Manager") then
-    if not pcall(manager.draw_ui, manager) then
-      imgui.text("Failed to render manager")
-    end
-
     if imgui.button("Reload") then
       manager:clear()
-      manager:init_defaults()
       manager:load_movesets()
+    end
+
+    local success, err = pcall(manager.draw_ui, manager)
+    if not success then
+      imgui.text("Failed to render manager: " .. err)
     end
 
     _, settings.debug = imgui.checkbox("Enable debug", settings.debug)
