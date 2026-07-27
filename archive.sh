@@ -1,7 +1,32 @@
 #!/usr/bin/env sh
 
+[ $# -lt 1 ] && echo "Usage: ./archive.sh <version>" && exit 1
+VERSION="$1"
+FOLDER_NAME="moveset_manager_v$VERSION"
+
 [ ! -d "artefacts" ] && mkdir artefacts
 
-tar -czvf artefacts/moveset_manager.tar.gz moveset_manager.lua examples
-zip -r artefacts/moveset_manager.zip moveset_manager.lua examples
-rar a artefacts/moveset_manager.rar moveset_manager.lua examples
+cd artefacts/
+
+mkdir -p tmp/reframework/autorun
+cp ../moveset_manager.lua tmp/reframework/autorun
+
+cat > tmp/modinfo.ini <<EOF
+name=Moveset Manager
+version=$VERSION
+description=Manages moveset swaps.
+screenshot=mod_ui.jpg
+category=Gameplay
+author=HoloTheSober
+EOF
+
+cp ../screenshots/mod_ui.png tmp/
+
+mkdir tmp/reframework/data
+cp -r ../examples tmp/reframework/data/movesets
+
+mv tmp "$FOLDER_NAME"
+zip -r moveset_manager.zip "$FOLDER_NAME"
+rm -rf "$FOLDER_NAME"
+
+cd -
