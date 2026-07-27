@@ -8,9 +8,9 @@ local settings = {
 ---@enum Weapon
 local Weapon = {
   GreatSword = 0,
-  LongSword = 1,
-  SwordAndShield = 2,
-  DualBlades = 3,
+  SwordAndShield = 1,
+  DualBlades = 2,
+  LongSword = 3,
   Hammer = 4,
   HuntingHorn = 5,
   Lance = 6,
