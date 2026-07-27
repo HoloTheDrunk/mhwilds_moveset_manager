@@ -110,6 +110,14 @@ function Moveset.parse(file_content)
     ::continue::
   end
 
+  if not res.name then
+    return nil, "Invalid moveset file, missing name."
+  end
+
+  if not res.weapon then
+    return nil, "Invalid moveset file, missing weapon."
+  end
+
   return setmetatable(res, Moveset), nil
 end
 
@@ -148,7 +156,7 @@ function Manager:load_movesets()
   for _, path in ipairs(paths) do
     local moveset, error = Moveset.parse(fs.read(path))
     if error then
-      self.errors[#self.errors + 1] = error
+      self.errors[#self.errors + 1] = string.format("[%s] %s", path, error)
       goto continue
     end
     self:register(moveset --[[@as Moveset]])
