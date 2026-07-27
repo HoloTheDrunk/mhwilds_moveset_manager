@@ -2,6 +2,7 @@
 ---! Defines a standard structure for action swap mods.
 
 local settings = {
+  enabled = true,
   debug = true,
 }
 
@@ -225,6 +226,8 @@ local actions = {}
 
 if change_action_req_method then
   sdk.hook(change_action_req_method, function(args)
+    if not settings.enabled then return end
+
     if not hunter_character then
       hunter_character = sdk.to_managed_object(args[2])
     end
@@ -255,9 +258,27 @@ end
 
 re.on_draw_ui(function()
   if imgui.tree_node("Moveset Manager") then
+    _, settings.enabled = imgui.checkbox("Enable", settings.enabled)
+    imgui.begin_disabled(not settings.enabled)
+
     if imgui.button("Reload") then
+      ---@type table<Weapon, string>
+      local active = {}
+      for id, sets in pairs(manager.weapons) do
+        if sets.active then
+          active[id] = sets.movesets[sets.active].name
+        end
+      end
       manager:clear()
       manager:load_movesets()
+      for weapon, name in pairs(active) do
+        for i, mv in ipairs(manager.weapons[weapon].movesets) do
+          if mv.name == name then
+            manager.weapons[weapon].active = i
+            break
+          end
+        end
+      end
     end
 
     local success, err = pcall(manager.draw_ui, manager)
@@ -283,6 +304,8 @@ re.on_draw_ui(function()
         end
       end
     end
+
+    imgui.end_disabled()
     imgui.tree_pop()
   end
 end)
