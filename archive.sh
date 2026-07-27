@@ -26,6 +26,7 @@ mkdir tmp/reframework/data
 cp -r ../examples tmp/reframework/data/movesets
 
 mv tmp "$FOLDER_NAME"
+[ -e "moveset_manager.zip" ] && rm moveset_manager.zip
 zip -r moveset_manager.zip "$FOLDER_NAME"
 rm -rf "$FOLDER_NAME"
 
