@@ -23,16 +23,25 @@ local Weapon = {
   HeavyBowgun = 12,
   LightBowgun = 13,
 }
-
 local weapon_name = {}
 for name, index in pairs(Weapon) do
   weapon_name[index] = name
 end
 
+---@enum Modifier
+local Modifier = {
+  Final = 1,
+}
+local modifier_name = {}
+for name, index in pairs(Modifier) do
+  modifier_name[index] = name
+end
+
 ---@alias Category integer
 ---@alias Index integer
+---@alias Modifiers integer
 
----@alias Action [Category, Index]
+---@alias Action [Category, Index, Modifiers]
 
 ---@class Moveset
 ---@field name string
@@ -59,6 +68,7 @@ end
 function Moveset.parse(file_content)
   local res = { name = nil, weapon = nil, swaps = {} }
 
+  ---@type table<Index, Action>?
   local category = nil
 
   for line in string.gmatch(file_content, '[^\r\n]+') do
@@ -94,19 +104,34 @@ function Moveset.parse(file_content)
     end
 
     -- Parse swap
+    local swap_parse_fail = function()
+      return nil,
+          string.format(
+            "Invalid swap '%s'. Swaps should be of the form '<from_index> <category> <index> (modifiers)'.",
+            line
+          )
+    end
+
+    local tokens = {}
+    for str in string.gmatch(line, "[^%s]+") do
+      tokens[#tokens + 1] = str
+    end
+
     local numbers = {}
-    for str_num in string.gmatch(line, "[0-9%-]+") do
-      numbers[#numbers + 1] = tonumber(str_num)
+    for i = 1, 3, 1 do
+      local num = tonumber(tokens[i])
+      if not num then swap_parse_fail() end
+      numbers[#numbers + 1] = num
     end
 
-    if #numbers ~= 3 then
-      return nil, string.format(
-        "Invalid swap '%s'. Swaps should be of the form '<from_index> <category> <index>'.",
-        line
-      )
+    local modifiers = 0
+    for i = 4, #tokens, 1 do
+      local modifier = Modifier[tokens[i]]
+      if not modifier then swap_parse_fail() end
+      modifiers = modifiers | modifier
     end
 
-    category[numbers[1]] = { numbers[2], numbers[3] }
+    category[numbers[1]] = { numbers[2], numbers[3], modifiers }
 
     ::continue::
   end
@@ -224,9 +249,16 @@ local weapon_type = nil
 local current_action = nil
 local actions = {}
 
+local final = false
+
 if change_action_req_method then
   sdk.hook(change_action_req_method, function(args)
     if not settings.enabled then return end
+
+    if final then
+      final = false
+      return
+    end
 
     if not hunter_character then
       hunter_character = sdk.to_managed_object(args[2])
@@ -244,6 +276,9 @@ if change_action_req_method then
         local moveset = tbl.movesets[tbl.active]
         local action = moveset:get_swap(category, index)
         if action then
+          if action[3] & Modifier.Final then
+            final = true
+          end
           sdk.set_native_field(action_id, action_id_type, "_Category", action[1])
           sdk.set_native_field(action_id, action_id_type, "_Index", action[2])
           hunter_character:call(
