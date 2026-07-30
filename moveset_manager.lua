@@ -197,6 +197,37 @@ function Manager:load_movesets()
   end
 end
 
+function Manager:load_config()
+  local config = json.load_file("moveset_manager_config.json")
+  if not config then return end
+  for wp_name, name in pairs(config) do
+    local wp = Weapon[wp_name]
+    if not wp then
+      self.errors[#self.errors + 1] = string.format("Unknown weapon name '%s'.", wp_name)
+      return
+    end
+    local mvs = self.weapons[wp]
+    for i, mv in ipairs(mvs.movesets) do
+      if mv.name == name then
+        mvs.active = i
+        break
+      end
+    end
+  end
+end
+
+function Manager:save_config()
+  local active_movesets = {}
+  for weapon, mvs in pairs(self.weapons) do
+    if not mvs.active then goto continue end
+    active_movesets[weapon_name[weapon]] = mvs.movesets[mvs.active].name
+    ::continue::
+  end
+  if not json.dump_file("moveset_manager_config.json", active_movesets) then
+    self.errors[#self.errors + 1] = "Failed to write config."
+  end
+end
+
 ---@param moveset Moveset
 ---@return boolean success
 function Manager:register(moveset)
@@ -244,6 +275,7 @@ end
 
 local manager = Manager.new()
 manager:load_movesets()
+manager:load_config()
 
 local hunter_type = sdk.find_type_definition("app.HunterCharacter")
 local change_action_req_method = hunter_type and
@@ -321,6 +353,18 @@ re.on_draw_ui(function()
           end
         end
       end
+    end
+
+    imgui.same_line()
+
+    if imgui.button("Save config") then
+      manager:save_config()
+    end
+
+    imgui.same_line()
+
+    if imgui.button("Load config") then
+      manager:load_config()
     end
 
     local success, err = pcall(manager.draw_ui, manager)
