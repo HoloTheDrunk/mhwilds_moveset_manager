@@ -29,8 +29,9 @@ for name, index in pairs(Weapon) do
 end
 
 ---@enum Modifier
+---Flags indicating motion modifiers
 local Modifier = {
-  Final = 1,
+  Final = 1 << 0,
 }
 local modifier_name = {}
 for name, index in pairs(Modifier) do
@@ -120,14 +121,16 @@ function Moveset.parse(file_content)
     local numbers = {}
     for i = 1, 3, 1 do
       local num = tonumber(tokens[i])
-      if not num then swap_parse_fail() end
+      if not num then return swap_parse_fail() end
       numbers[#numbers + 1] = num
     end
 
     local modifiers = 0
     for i = 4, #tokens, 1 do
       local modifier = Modifier[tokens[i]]
-      if not modifier then swap_parse_fail() end
+      if not modifier then
+        return nil, string.format("Unrecognized modifier '%s'.", tokens[i])
+      end
       modifiers = modifiers | modifier
     end
 
@@ -180,7 +183,11 @@ function Manager:load_movesets()
   ---@type string[]
   local paths = fs.glob([[.*\.moveswap]])
   for _, path in ipairs(paths) do
-    local moveset, error = Moveset.parse(fs.read(path))
+    local success, moveset, error = pcall(Moveset.parse, fs.read(path))
+    if not success then
+      self.errors[#self.errors + 1] = string.format("[%s] Unknown error.", path)
+      goto continue
+    end
     if error then
       self.errors[#self.errors + 1] = string.format("[%s] %s", path, error)
       goto continue
@@ -249,14 +256,16 @@ local weapon_type = nil
 local current_action = nil
 local actions = {}
 
-local final = false
+local modifiers = {
+  final = false,
+}
 
 if change_action_req_method then
   sdk.hook(change_action_req_method, function(args)
     if not settings.enabled then return end
 
-    if final then
-      final = false
+    if modifiers.final then
+      modifiers.final = false
       return
     end
 
@@ -276,9 +285,7 @@ if change_action_req_method then
         local moveset = tbl.movesets[tbl.active]
         local action = moveset:get_swap(category, index)
         if action then
-          if action[3] & Modifier.Final then
-            final = true
-          end
+          modifiers.final = action[3] & Modifier.Final
           sdk.set_native_field(action_id, action_id_type, "_Category", action[1])
           sdk.set_native_field(action_id, action_id_type, "_Index", action[2])
           hunter_character:call(
