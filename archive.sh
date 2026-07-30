@@ -15,12 +15,12 @@ cat > tmp/modinfo.ini <<EOF
 name=Moveset Manager
 version=$VERSION
 description=Manages moveset swaps.
-screenshot=mod_ui.jpg
+screenshot=nexus_banner.png
 category=Gameplay
 author=HoloTheSober
 EOF
 
-cp ../screenshots/mod_ui.png tmp/
+cp ../screenshots/nexus_banner.png tmp/
 
 mkdir tmp/reframework/data
 cp -r ../examples tmp/reframework/data/movesets
