@@ -285,7 +285,7 @@ if change_action_req_method then
         local moveset = tbl.movesets[tbl.active]
         local action = moveset:get_swap(category, index)
         if action then
-          modifiers.final = action[3] & Modifier.Final
+          modifiers.final = (action[3] & Modifier.Final) ~= 0
           sdk.set_native_field(action_id, action_id_type, "_Category", action[1])
           sdk.set_native_field(action_id, action_id_type, "_Index", action[2])
           hunter_character:call(
