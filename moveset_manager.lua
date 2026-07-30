@@ -284,6 +284,7 @@ local change_action_req_method = hunter_type and
 local action_id_type = sdk.find_type_definition("ace.ACTION_ID") --[[@as RETypeDefinition]]
 
 local hunter_character = nil
+---@type integer?
 local weapon_type = nil
 local current_action = nil
 local actions = {}
@@ -305,7 +306,9 @@ if change_action_req_method then
       hunter_character = sdk.to_managed_object(args[2])
     end
     if hunter_character then
-      weapon_type = hunter_character:call("get_WeaponType") --[[@as integer]]
+      ---@type boolean, integer?
+      _, weapon_type = pcall(hunter_character.call, hunter_character, "get_WeaponType")
+      if not weapon_type then return end
 
       local action_id = args[4]
       local category = sdk.get_native_field(action_id, action_id_type, "_Category")
