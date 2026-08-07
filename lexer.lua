@@ -86,18 +86,18 @@ end
 ---@private
 ---@return nil
 function Lexer:_skip_whitespace()
+  self._peeked = nil
   while is_whitespace(self.input:sub(self.index, self.index)) do
     self.index = self.index + 1
   end
-  self._peeked = nil
 end
 
 ---@return boolean EOF
 function Lexer:skip_line()
+  self._peeked = nil
   local s, e = self.input:find("\n", self.index)
   if not s then return true end
   self.index = e and e + 1 or #self.input
-  self._peeked = nil
   return false
 end
 
