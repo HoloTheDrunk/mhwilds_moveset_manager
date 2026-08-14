@@ -96,9 +96,8 @@ end
 function Lexer:skip_line()
   self._peeked = nil
   local s, e = self.input:find("\n", self.index)
-  if not s then return true end
-  self.index = e and e + 1 or #self.input
-  return false
+  self.index = e and e + 1 or #self.input + 1
+  return s == nil
 end
 
 ---@return LexedToken?
@@ -168,6 +167,8 @@ end
 
 ---@return LexedToken?
 function Lexer:peek()
+  if self.index > #self.input then return end
+
   if self._peeked then
     return self._peeked
   end

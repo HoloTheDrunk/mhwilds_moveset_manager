@@ -1,5 +1,5 @@
 local lib = require("lib")
-local Moveset, Weapon, weapon_name = lib.Moveset, lib.Weapon, lib.weapon_name
+local Moveset, Weapon = lib.Moveset, lib.Weapon
 
 local lexer_lib = require("lexer")
 local Lexer, Token = lexer_lib.Lexer, lexer_lib.Token
@@ -22,18 +22,6 @@ function Parser.new(input)
   }, Parser)
 end
 
----@param input string
-local function collect_tokens(input)
-  print(input)
-  print(("-"):rep(10))
-  local lexer = Lexer.new(input)
-  local tok = lexer:next()
-  while tok do
-    print(lexer.input:sub(tok.span[1], tok.span[2]))
-    tok = lexer:next()
-  end
-end
-
 ---@alias ProcessingFunc fun(lexer: Lexer, tok: LexedToken, dst: string, field: string): string?
 ---@alias ProcessingTarget {dst: string, field: string}
 
@@ -50,7 +38,7 @@ function Parser:parse_sequence(sequence)
       if tmp.tok ~= step.tok then
         err = err .. string.format(" in position %d, got '%s'.", position, self.lexer:from_span(tmp.span))
       end
-      return err
+      return debug.traceback(err)
     end
 
     if step.process then
@@ -174,9 +162,13 @@ function Parser:parse_description()
     if not peeked then return nil, "Unexpected EOF." end
 
     if peeked.tok == Token["="] then break end
-    if peeked.tok == Token["!"] then self.lexer:skip_line() end
+    if peeked.tok == Token["!"] then
+      self.lexer:skip_line()
+      goto continue
+    end
 
     lines[#lines + 1] = self.lexer:line():trim()
+    ::continue::
   end
   local description = nil
   for _, line in ipairs(lines) do
@@ -193,25 +185,28 @@ function Parser:parse_description()
 end
 
 -- cat ind => cat ind | mod | mod | mod
----@return table<Category, table<Index, [Category, Index, Modifiers]>>? swaps, string? error
+---@return Swap[]? swaps, string? error
 function Parser:parse_swaps()
   local swaps = {}
+  local ids = {}
   while self.lexer:peek() do
+    if self.lexer:peek().tok == Token["!"] then
+      self.lexer:skip_line()
+      goto continue
+    end
     local res, err = self:parse_swap()
     if not res then return nil, err end
-    if not swaps[res.from[1]] then
-      swaps[res.from[1]] = {}
+    if ids[res.id] then
+      return nil, string.format("Duplicate swap id: %d.", res.id)
     end
-    -- TODO: change swap storage to a simple indexed list
-    -- Runtime cost will be slightly higher but it is what it is.
-    if not swaps[res.from[1]][res.from[2]] then
-      swaps[res.from[1]][res.from[2]] = { res.to[1], res.to[2], res.modifiers }
-    end
+    ids[res.id] = true
+    swaps[#swaps + 1] = res
+    ::continue::
   end
   return swaps
 end
 
----@return { id: integer, from: [Category, Index], to: [Category, Index], modifiers: Modifiers }?, string? err
+---@return Swap?, string? err
 function Parser:parse_swap()
   local data = {
     id = 0,
@@ -239,7 +234,8 @@ function Parser:parse_swap()
     local peeked = self.lexer:peek()
     if not peeked or peeked.tok ~= Token["|"] then break end
     self.lexer:next()
-    self:parse_modifier(modifiers)
+    local error = self:parse_modifier(modifiers)
+    if error then return nil, string.format("Swap %d: %s", data.id, error) end
   end
 
   return { id = data.id, from = { data.from_1, data.from_2 }, to = { data.to_1, data.to_2 }, modifiers = modifiers }
@@ -258,15 +254,16 @@ function Parser:parse_modifier(modifiers)
       self.lexer:from_span(name.span), lexer_lib.tok_name[name.tok]
     )
   end
-  local lower = self.lexer:from_span(name.span):lower()
+  local lower = self.lexer:from_span(name.span):gsub("([a-z])([A-Z])", "%1_%2"):lower()
   local parse_fn = ({
     final = self.parse_modifier_final,
-    after = self.parse_modifier_after,
+    after_swap = self.parse_modifier_after_swap,
+    after_move = self.parse_modifier_after_move,
   })[lower]
   if not parse_fn then return string.format("Unrecognized modifier '%s'.", self.lexer:from_span(name.span)) end
 
   local res, error = parse_fn(self)
-  if not res then return error end
+  if not res then return string.format("Modifier '%s': %s", self.lexer:from_span(name.span), error) end
 
   modifiers[lower] = res
 end
@@ -276,10 +273,12 @@ function Parser:parse_modifier_final()
   return { enabled = true }
 end
 
-function Parser:parse_modifier_after()
+---@return M_AfterSwap?, string? error
+function Parser:parse_modifier_after_swap()
+  ---@type M_AfterSwap
   local res = {
-    ---@type integer
-    id = nil
+    enabled = true,
+    id = -1
   }
 
   local error = self:parse_sequence({
@@ -290,19 +289,44 @@ function Parser:parse_modifier_after()
 
   if error then return nil, error end
 
-  return { enabled = true, prev_id = res.id }
+  return res
+end
+
+---@return M_AfterMove?, string? error
+function Parser:parse_modifier_after_move()
+  ---@type M_AfterMove
+  local res = {
+    enabled = true,
+    category = -1,
+    index = -1,
+  }
+
+  local error = self:parse_sequence({
+    { tok = Token["("] },
+    { tok = Token.NUMBER, process = { { res, "category" }, process_number } },
+    { tok = Token[","] },
+    { tok = Token.NUMBER, process = { { res, "index" }, process_number } },
+    { tok = Token[")"] },
+  })
+
+  if error then return nil, error end
+
+  return res
 end
 
 local mv, err = Parser.new([[
 name: My Moveset
 author: Me
 weapon: Hammer
+!weapon: Longsword
 ----
+!Ignored line
 Switches Big Bang I and Overhead Smash I around.
 Not very useful.
 ====
 0: 2 6 => 2 37 | Final
-1: 2 37 => 2 6 | Final
+1: 2 37 => 2 6 | AfterMove(1, 2) | Final
+2: 2 6 => 2 38 | Final | AfterSwap(1)
 ]]):parse()
 
 if not mv then

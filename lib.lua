@@ -25,29 +25,40 @@ end
 
 ---@class M_Final : M_Base
 
----@class M_After : M_Base
----@field prev_id integer
+---@class M_AfterMove : M_Base
+---@field category integer
+---@field index integer
+
+---@class M_AfterSwap : M_Base
+---@field id integer
 
 ---@class Modifiers
 ---@field final? M_Final
----@field after? M_After
+---@field after_move? M_AfterMove
+---@field after_swap? M_AfterSwap
 
 ---@alias Category integer
 ---@alias Index integer
 
----@alias Action [Category, Index, Modifiers]
+---@alias Action [Category, Index]
+
+---@class Swap
+---@field id integer
+---@field from Action
+---@field to Action
+---@field modifiers Modifiers
 
 ---@class Moveset
 ---@field name string
 ---@field weapon Weapon
----@field swaps table<Category, table<Index, Action>>
+---@field swaps Swap[]
 ---@field description string?
 local Moveset = {}
 Moveset.__index = Moveset
 
 ---@param name string
 ---@param weapon Weapon
----@param swaps table<Category, table<Index, Action>>
+---@param swaps Swap[]
 ---@param description string?
 ---@return Moveset
 function Moveset.new(name, weapon, swaps, description)
@@ -59,117 +70,59 @@ function Moveset.new(name, weapon, swaps, description)
   }, Moveset)
 end
 
--- ---Returns the parsed moveset or nil and an error message
--- ---@param file_content string
--- ---@return Moveset?, string? error
--- function Moveset.parse(file_content)
---   local res = { name = nil, weapon = nil, swaps = {} }
---
---   ---@type table<Index, Action>?
---   local category = nil
---
---   for line in string.gmatch(file_content, '[^\r\n]+') do
---     -- Skip comments
---     if string.sub(line, 1, 1) == "!" then goto continue end
---
---     -- Parse name
---     if not res.name then
---       res.name = line
---       goto continue
---     end
---
---     -- Parse weapon
---     if not res.weapon then
---       local stripped = string.gsub(line, '%s+', '')
---       local weapon = Weapon[stripped]
---       if not weapon then
---         return nil, string.format("Failed to parse weapon '%s'", line)
---       end
---       res.weapon = weapon
---       goto continue
---     end
---
---     -- Parse category
---     if string.sub(line, 1, 1) == '#' then
---       local stripped = string.gsub(line, '^#%s*(.-)%s*$', '%1')
---       local category_id = tonumber(stripped, 10)
---       if not res.swaps[category_id] then
---         res.swaps[category_id] = {}
---       end
---       category = res.swaps[category_id]
---       goto continue
---     end
---
---     -- Parse swap
---     local swap_parse_fail = function()
---       return nil,
---           string.format(
---             "Invalid swap '%s'. Swaps should be of the form '<from_index> <category> <index> (modifiers)'.",
---             line
---           )
---     end
---
---     local tokens = {}
---     for str in string.gmatch(line, "[^%s]+") do
---       tokens[#tokens + 1] = str
---     end
---
---     local numbers = {}
---     for i = 1, 3, 1 do
---       local num = tonumber(tokens[i])
---       if not num then return swap_parse_fail() end
---       numbers[#numbers + 1] = num
---     end
---
---     local modifiers = 0
---     for i = 4, #tokens, 1 do
---       local modifier = Modifier[tokens[i]]
---       if not modifier then
---         return nil, string.format("Unrecognized modifier '%s'.", tokens[i])
---       end
---       modifiers = modifiers | modifier
---     end
---
---     category[numbers[1]] = { numbers[2], numbers[3], modifiers }
---
---     ::continue::
---   end
---
---   if not res.name then
---     return nil, "Invalid moveset file, missing name."
---   end
---
---   if not res.weapon then
---     return nil, "Invalid moveset file, missing weapon."
---   end
---
---   return setmetatable(res, Moveset), nil
--- end
-
 ---@param category Category
 ---@param index Index
----@return Action?
-function Moveset:get_swap(category, index)
-  if self.swaps[category] then
-    return self.swaps[category][index]
+---@param prev_move Action
+---@param prev_swap integer?
+---@return Swap?
+function Moveset:get_swap(category, index, prev_move, prev_swap)
+  for _, swap in ipairs(self.swaps) do
+    local from, modifiers = swap[1], swap[3]
+
+    repeat
+      if from[1] ~= category and from[2] ~= index then
+        break
+      end
+
+      if modifiers.after_move and modifiers.after_move.enabled
+          and modifiers.after_move.category ~= prev_move[1]
+          or modifiers.after_move.index ~= prev_move[2]
+      then
+        break
+      end
+
+      if prev_swap and modifiers.after_swap
+          and modifiers.after_swap.enabled
+          or modifiers.after_swap.id ~= prev_swap
+      then
+        break
+      end
+
+      return swap
+    until true
   end
 end
 
 function Moveset:__tostring()
   local first_line = true
   local swaps_str = ""
-  for category, swaps in pairs(self.swaps) do
-    for index, new in pairs(swaps) do
-      local cat, ind, modifiers = new[1], new[2], new[3]
-      if first_line then
-        first_line = false
-      else
-        swaps_str = swaps_str .. "\n" .. (" "):rep(9)
-      end
-      swaps_str = swaps_str .. string.format("%d %d => %d %d", category, index, cat, ind)
-      if modifiers.after then swaps_str = swaps_str .. string.format(" | After(%d)", modifiers.after.prev_id) end
-      if modifiers.final then swaps_str = swaps_str .. " | Final" end
+  for _, swap in pairs(self.swaps) do
+    local from, to, modifiers = swap.from, swap.to, swap.modifiers
+    if first_line then
+      first_line = false
+    else
+      swaps_str = swaps_str .. "\n" .. (" "):rep(9)
     end
+    swaps_str = swaps_str .. string.format("%d %d => %d %d", from[1], from[2], to[1], to[2])
+    if modifiers.after_move then
+      swaps_str = swaps_str ..
+          string.format(" | AfterMove(%d, %d)", modifiers.after_move.category, modifiers.after_move.index)
+    end
+    if modifiers.after_swap then
+      swaps_str = swaps_str ..
+          string.format(" | AfterSwap(%d)", modifiers.after_swap.id)
+    end
+    if modifiers.final then swaps_str = swaps_str .. " | Final" end
   end
 
   local description = ""
@@ -194,5 +147,4 @@ return {
   Weapon = Weapon,
   weapon_name = weapon_name,
   Moveset = Moveset,
-  Modifier = Modifier,
 }
