@@ -314,7 +314,8 @@ function Parser:parse_modifier_after_move()
   return res
 end
 
-local mv, err = Parser.new([[
+if not debug.getinfo(3) then
+  local mv, err = Parser.new([[
 name: My Moveset
 author: Me
 weapon: Hammer
@@ -329,8 +330,11 @@ Not very useful.
 2: 2 6 => 2 38 | Final | AfterSwap(1)
 ]]):parse()
 
-if not mv then
-  print(err)
-else
-  print(tostring(mv))
+  if not mv then
+    print(err)
+  else
+    print(tostring(mv))
+  end
 end
+
+return Parser

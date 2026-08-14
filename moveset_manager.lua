@@ -2,7 +2,9 @@
 ---! Defines a standard structure for action swap mods.
 
 local lib = require("lib")
-local Moveset, Modifier, Weapon, weapon_name = lib.Moveset, lib.Modifier, lib.Weapon, lib.weapon_name
+local Modifier, Weapon, weapon_name = lib.Modifier, lib.Weapon, lib.weapon_name
+
+local Parser = require("parser")
 
 local settings = {
   enabled = true,
@@ -33,12 +35,8 @@ function Manager:load_movesets()
   ---@type string[]
   local paths = fs.glob([[.*\.moveswap]])
   for _, path in ipairs(paths) do
-    local success, moveset, error = pcall(Moveset.parse, fs.read(path))
-    if not success then
-      self.errors[#self.errors + 1] = string.format("[%s] Unknown error.", path)
-      goto continue
-    end
-    if error then
+    local moveset, error = Parser.new(fs.read(path)):parse()
+    if not moveset then
       self.errors[#self.errors + 1] = string.format("[%s] %s", path, error)
       goto continue
     end
@@ -143,43 +141,62 @@ local modifiers = {
   final = false,
 }
 
+local prev = {
+  ---@type [integer, integer]
+  ---We can safely assume people will do *something* before a replaced action.
+  move = nil,
+  ---@type integer?
+  swap = nil,
+}
+
 if change_action_req_method then
   sdk.hook(change_action_req_method, function(args)
-    if not settings.enabled then return end
+    local ret = sdk.PreHookResult.CALL_ORIGINAL
+
+    if not settings.enabled then goto finish end
 
     if modifiers.final then
       modifiers.final = false
-      return
+      goto finish
     end
 
     if not hunter_character then
       hunter_character = sdk.to_managed_object(args[2])
     end
-    if hunter_character then
-      ---@type boolean, integer?
-      _, weapon_type = pcall(hunter_character.call, hunter_character, "get_WeaponType")
-      if not weapon_type then return end
+    if not hunter_character then goto finish end
 
-      local action_id = args[4]
-      local category = sdk.get_native_field(action_id, action_id_type, "_Category")
-      local index = sdk.get_native_field(action_id, action_id_type, "_Index")
-      current_action = { category = category, index = index }
+    ---@type boolean, integer?
+    _, weapon_type = pcall(hunter_character.call, hunter_character, "get_WeaponType")
+    if not weapon_type then return end
 
-      local tbl = manager.weapons[weapon_type]
-      if tbl and tbl.active then
-        local moveset = tbl.movesets[tbl.active]
-        local action = moveset:get_swap(category, index)
-        if action then
-          modifiers.final = (action[3] & Modifier.Final) ~= 0
-          sdk.set_native_field(action_id, action_id_type, "_Category", action[1])
-          sdk.set_native_field(action_id, action_id_type, "_Index", action[2])
-          hunter_character:call(
-            "changeActionRequest(app.AppActionDef.LAYER, ace.ACTION_ID, System.Boolean)",
-            args[3], action_id, args[5])
-          return sdk.PreHookResult.SKIP_ORIGINAL
-        end
-      end
+    local action_id = args[4]
+    local category = sdk.get_native_field(action_id, action_id_type, "_Category")
+    local index = sdk.get_native_field(action_id, action_id_type, "_Index")
+    current_action = { category = category, index = index }
+
+    local tbl = manager.weapons[weapon_type]
+    if not tbl or not tbl.active then goto finish end
+
+    local moveset = tbl.movesets[tbl.active]
+    local swap = moveset:get_swap(category, index, prev.move, prev.swap)
+    if swap then
+      prev.swap = swap.id
+      modifiers.final = swap.modifiers.final and swap.modifiers.final.enabled
+
+      sdk.set_native_field(action_id, action_id_type, "_Category", swap.to[1])
+      sdk.set_native_field(action_id, action_id_type, "_Index", swap.to[2])
+      hunter_character:call(
+        "changeActionRequest(app.AppActionDef.LAYER, ace.ACTION_ID, System.Boolean)",
+        args[3], action_id, args[5])
+
+      ret = sdk.PreHookResult.SKIP_ORIGINAL
     end
+
+    ::finish::
+    if current_action then
+      prev.move = { current_action.category, current_action.index }
+    end
+    return ret
   end)
 end
 
@@ -230,12 +247,11 @@ re.on_draw_ui(function()
       if weapon_type then
         imgui.text("Weapon: " .. tostring(weapon_type))
       end
-      if current_action then
+      if current_action and (#actions == 0 or actions[#actions].category ~= current_action.category or actions[#actions].index ~= current_action.index) then
+        actions[#actions + 1] = current_action
+      end
+      if #actions > 0 then
         imgui.separator()
-
-        if #actions == 0 or actions[#actions].category ~= current_action.category or actions[#actions].index ~= current_action.index then
-          actions[#actions + 1] = current_action
-        end
 
         for i = #actions, math.max(1, #actions - 10), -1 do
           local action = actions[i]
