@@ -1,7 +1,10 @@
-Super Smash Fellas - HoloTheDrunk
-Hammer
-# 2
+name: Super Smash Fellas
+author: HoloTheDrunk
+weapon: Hammer
+----
+Infinitely repeating Big Bang IV until you miss.
+====
 ! Big Bang I -> Big Bang IV
-37 2 40
+0: 2 37 => 2 40
 ! Big Bang IV recovery -> Big Bang IV
-45 2 40
+1: 2 45 => 2 40

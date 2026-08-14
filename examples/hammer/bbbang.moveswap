@@ -1,8 +1,10 @@
-BBBang - HoloTheDrunk
-Hammer
-# 2
-! Automatic Big Bang sequence with no recoveries.
-42 2 38
-43 2 39
-44 2 40
-45 2 41
+name: BBBang
+author: HoloTheDrunk
+weapon: Hammer
+----
+Speeds up and automates the Big Bang combo by removing recovery animations.
+====
+0: 2 42 => 2 38
+1: 2 43 => 2 39
+2: 2 44 => 2 40
+3: 2 45 => 2 41
