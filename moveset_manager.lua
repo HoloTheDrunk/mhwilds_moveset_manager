@@ -2,7 +2,7 @@
 ---! Defines a standard structure for action swap mods.
 
 local lib = require("lib")
-local Modifier, Weapon, weapon_name = lib.Modifier, lib.Weapon, lib.weapon_name
+local Weapon, weapon_name = lib.Weapon, lib.weapon_name
 
 local Parser = require("parser")
 
@@ -169,27 +169,29 @@ if change_action_req_method then
     _, weapon_type = pcall(hunter_character.call, hunter_character, "get_WeaponType")
     if not weapon_type then return end
 
-    local action_id = args[4]
-    local category = sdk.get_native_field(action_id, action_id_type, "_Category")
-    local index = sdk.get_native_field(action_id, action_id_type, "_Index")
-    current_action = { category = category, index = index }
+    do
+      local action_id = args[4]
+      local category = sdk.get_native_field(action_id, action_id_type, "_Category")
+      local index = sdk.get_native_field(action_id, action_id_type, "_Index")
+      current_action = { category = category, index = index }
 
-    local tbl = manager.weapons[weapon_type]
-    if not tbl or not tbl.active then goto finish end
+      local tbl = manager.weapons[weapon_type]
+      if not tbl or not tbl.active then goto finish end
 
-    local moveset = tbl.movesets[tbl.active]
-    local swap = moveset:get_swap(category, index, prev.move, prev.swap)
-    if swap then
-      prev.swap = swap.id
-      modifiers.final = swap.modifiers.final and swap.modifiers.final.enabled
+      local moveset = tbl.movesets[tbl.active]
+      local swap = moveset:get_swap(category, index, prev.move, prev.swap)
+      if swap then
+        prev.swap = swap.id
+        modifiers.final = swap.modifiers.final and swap.modifiers.final.enabled
 
-      sdk.set_native_field(action_id, action_id_type, "_Category", swap.to[1])
-      sdk.set_native_field(action_id, action_id_type, "_Index", swap.to[2])
-      hunter_character:call(
-        "changeActionRequest(app.AppActionDef.LAYER, ace.ACTION_ID, System.Boolean)",
-        args[3], action_id, args[5])
+        sdk.set_native_field(action_id, action_id_type, "_Category", swap.to[1])
+        sdk.set_native_field(action_id, action_id_type, "_Index", swap.to[2])
+        hunter_character:call(
+          "changeActionRequest(app.AppActionDef.LAYER, ace.ACTION_ID, System.Boolean)",
+          args[3], action_id, args[5])
 
-      ret = sdk.PreHookResult.SKIP_ORIGINAL
+        ret = sdk.PreHookResult.SKIP_ORIGINAL
+      end
     end
 
     ::finish::
@@ -216,6 +218,7 @@ re.on_draw_ui(function()
       manager:clear()
       manager:load_movesets()
       for weapon, name in pairs(active) do
+        if not manager.weapons[weapon] then manager.weapons[weapon] = { movesets = {} } end
         for i, mv in ipairs(manager.weapons[weapon].movesets) do
           if mv.name == name then
             manager.weapons[weapon].active = i
@@ -240,6 +243,16 @@ re.on_draw_ui(function()
     local success, err = pcall(manager.draw_ui, manager)
     if not success then
       imgui.text("Failed to render manager: " .. err)
+    end
+
+    if weapon_type then
+      local tbl = manager.weapons[weapon_type]
+      if tbl then
+        imgui.text(tbl.movesets[tbl.active].name)
+        if tbl.movesets[tbl.active].description then
+          imgui.text(tbl.movesets[tbl.active].description)
+        end
+      end
     end
 
     _, settings.debug = imgui.checkbox("Enable debug", settings.debug)

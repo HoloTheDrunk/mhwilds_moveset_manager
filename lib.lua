@@ -77,23 +77,23 @@ end
 ---@return Swap?
 function Moveset:get_swap(category, index, prev_move, prev_swap)
   for _, swap in ipairs(self.swaps) do
-    local from, modifiers = swap[1], swap[3]
+    local from, modifiers = swap.from, swap.modifiers
 
     repeat
-      if from[1] ~= category and from[2] ~= index then
+      if from[1] ~= category or from[2] ~= index then
         break
       end
 
       if modifiers.after_move and modifiers.after_move.enabled
-          and modifiers.after_move.category ~= prev_move[1]
-          or modifiers.after_move.index ~= prev_move[2]
+          and (modifiers.after_move.category ~= prev_move[1]
+            or modifiers.after_move.index ~= prev_move[2])
       then
         break
       end
 
       if prev_swap and modifiers.after_swap
           and modifiers.after_swap.enabled
-          or modifiers.after_swap.id ~= prev_swap
+          and modifiers.after_swap.id ~= prev_swap
       then
         break
       end
@@ -107,13 +107,13 @@ function Moveset:__tostring()
   local first_line = true
   local swaps_str = ""
   for _, swap in pairs(self.swaps) do
-    local from, to, modifiers = swap.from, swap.to, swap.modifiers
+    local id, from, to, modifiers = swap.id, swap.from, swap.to, swap.modifiers
     if first_line then
       first_line = false
     else
       swaps_str = swaps_str .. "\n" .. (" "):rep(9)
     end
-    swaps_str = swaps_str .. string.format("%d %d => %d %d", from[1], from[2], to[1], to[2])
+    swaps_str = swaps_str .. string.format("%s: %d %d => %d %d", id == -1 and "_" or id, from[1], from[2], to[1], to[2])
     if modifiers.after_move then
       swaps_str = swaps_str ..
           string.format(" | AfterMove(%d, %d)", modifiers.after_move.category, modifiers.after_move.index)

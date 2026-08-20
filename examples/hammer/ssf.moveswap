@@ -5,6 +5,6 @@ weapon: Hammer
 Infinitely repeating Big Bang IV until you miss.
 ====
 ! Big Bang I -> Big Bang IV
-0: 2 37 => 2 40
+_: 2 37 => 2 40
 ! Big Bang IV recovery -> Big Bang IV
-1: 2 45 => 2 40
+_: 2 45 => 2 40

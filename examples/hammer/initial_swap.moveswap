@@ -5,5 +5,5 @@ weapon: Hammer
 Switches Big Bang I and Overhead Smash I around.
 Not very useful.
 ====
-0: 2 6 => 2 37 | Final
-1: 2 37 => 2 6 | Final
+_: 2 6 => 2 37 | Final
+_: 2 37 => 2 6 | Final

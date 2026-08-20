@@ -3,8 +3,8 @@ author: HoloTheDrunk
 weapon: Hammer
 ====
 ! Side Swing -> Midair Spinning Bludgeon
-0: 2 5 => 2 66
+_: 2 5 => 2 66
 ! Infinite Spin
-1: 2 33 => 2 32
+_: 2 33 => 2 32
 ! Spinning Follow-up -> Mighty Charge Slam
-2: 2 35 => 2 79
+_: 2 35 => 2 79

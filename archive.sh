@@ -1,10 +1,16 @@
 #!/usr/bin/env sh
 
-[ $# -lt 1 ] && echo "Usage: ./archive.sh <version>" && exit 1
+set -e
+
+[ ! -f "compiler.lua" ] && echo "Must be in moveset_manager repo directory to run." >2 && exit 1
+
+[ $# -lt 1 ] && echo "Usage: ./archive.sh <version>" >2 && exit 1
 VERSION="$1"
 FOLDER_NAME="moveset_manager_v$VERSION"
 
 [ ! -d "artefacts" ] && mkdir artefacts
+
+lua compiler.lua
 
 cd artefacts/
 

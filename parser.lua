@@ -24,15 +24,18 @@ end
 
 ---@alias ProcessingFunc fun(lexer: Lexer, tok: LexedToken, dst: string, field: string): string?
 ---@alias ProcessingTarget {dst: string, field: string}
-
----@param sequence { tok: Token, process?: [ProcessingTarget, ProcessingFunc] }[]
+---@alias SequenceStep { tok: Token, process?: [ProcessingTarget, ProcessingFunc], _default?: Token }
+---@param sequence SequenceStep[]
 ---@return string? err
 function Parser:parse_sequence(sequence)
   for position, step in ipairs(sequence) do
     local tmp = self.lexer:next()
 
-    -- Error generation
+    -- Error handling
     if not tmp or tmp.tok ~= step.tok then
+      -- Check for placeholder
+      if tmp and step._default and tmp.tok == step._default then goto continue end
+
       local err = string.format("Invalid swap syntax. Expected '%s'", lexer_lib.tok_name[step.tok])
       if not tmp then return err .. "." end
       if tmp.tok ~= step.tok then
@@ -47,6 +50,8 @@ function Parser:parse_sequence(sequence)
       local err = fn(self.lexer, tmp, target[1], target[2])
       if err then return err end
     end
+
+    ::continue::
   end
 end
 
@@ -188,7 +193,6 @@ end
 ---@return Swap[]? swaps, string? error
 function Parser:parse_swaps()
   local swaps = {}
-  local ids = {}
   while self.lexer:peek() do
     if self.lexer:peek().tok == Token["!"] then
       self.lexer:skip_line()
@@ -196,10 +200,6 @@ function Parser:parse_swaps()
     end
     local res, err = self:parse_swap()
     if not res then return nil, err end
-    if ids[res.id] then
-      return nil, string.format("Duplicate swap id: %d.", res.id)
-    end
-    ids[res.id] = true
     swaps[#swaps + 1] = res
     ::continue::
   end
@@ -209,7 +209,7 @@ end
 ---@return Swap?, string? err
 function Parser:parse_swap()
   local data = {
-    id = 0,
+    id = -1,
     from_1 = 0,
     from_2 = 0,
     to_1 = 0,
@@ -217,7 +217,13 @@ function Parser:parse_swap()
   }
 
   local err = self:parse_sequence({
-    { tok = Token.NUMBER, process = { { data, "id" }, process_number } },
+    -- TODO: Parse an underscore as a fallback and make it -1
+    -- Having to give an ID to everything quickly gets tiring
+    {
+      tok = Token.NUMBER,
+      process = { { data, "id" }, process_number },
+      _default = Token["_"],
+    },
     { tok = Token[":"] },
     { tok = Token.NUMBER, process = { { data, "from_1" }, process_number } },
     { tok = Token.NUMBER, process = { { data, "from_2" }, process_number } },
@@ -327,7 +333,7 @@ Not very useful.
 ====
 0: 2 6 => 2 37 | Final
 1: 2 37 => 2 6 | AfterMove(1, 2) | Final
-2: 2 6 => 2 38 | Final | AfterSwap(1)
+_: 2 6 => 2 38 | Final | AfterSwap(1)
 ]]):parse()
 
   if not mv then

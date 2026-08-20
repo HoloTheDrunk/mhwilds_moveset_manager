@@ -4,7 +4,7 @@ weapon: Hammer
 ----
 Speeds up and automates the Big Bang combo by removing recovery animations.
 ====
-0: 2 42 => 2 38
-1: 2 43 => 2 39
-2: 2 44 => 2 40
-3: 2 45 => 2 41
+_: 2 42 => 2 38
+_: 2 43 => 2 39
+_: 2 44 => 2 40
+_: 2 45 => 2 41

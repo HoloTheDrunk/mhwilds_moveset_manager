@@ -10,6 +10,7 @@ local Token = {
   ["="] = 8,
   [">"] = 8,
   ["|"] = 9,
+  ["_"] = 10,
   MAX_TOK = 100,
   IDENTIFIER = 101,
   NUMBER = 102,
