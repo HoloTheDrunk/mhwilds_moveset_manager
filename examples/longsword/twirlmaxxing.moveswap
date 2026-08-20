@@ -2,6 +2,8 @@ name: Twirlmaxxing
 author: HoloTheDrunk
 weapon: LongSword
 ----
-Twirl instead of Roundslash.
+Spinning Crimson Slash by inputting a Fade Slash after Spirit Blade III.
+Follow it up with another Fade Slash input to perform a Spirit Release Slash.
 ====
-_: 2 13 => 2 14
+1: 2 6 => 2 14 | AfterMove(2, 12)
+_: 2 6 => 2 22 | AfterSwap(1)
