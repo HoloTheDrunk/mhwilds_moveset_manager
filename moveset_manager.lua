@@ -247,7 +247,7 @@ re.on_draw_ui(function()
 
     if weapon_type then
       local tbl = manager.weapons[weapon_type]
-      if tbl then
+      if tbl and tbl.active then
         imgui.text(tbl.movesets[tbl.active].name)
         if tbl.movesets[tbl.active].description then
           imgui.text(tbl.movesets[tbl.active].description)
