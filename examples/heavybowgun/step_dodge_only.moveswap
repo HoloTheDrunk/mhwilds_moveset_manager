@@ -1,0 +1,11 @@
+name: Step dodge only
+author: HoloTheDrunk
+weapon: HeavyBowgun
+----
+Turns all roll dodges into the corresponding step dodges.
+====
+_: 1 19 => 2 8
+_: 1 20 => 2 9
+_: 1 21 => 2 10
+_: 1 22 => 2 11
+_: 1 23 => 2 12

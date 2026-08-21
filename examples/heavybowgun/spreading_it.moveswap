@@ -1,0 +1,7 @@
+name: Spreading it
+author: HoloTheDrunk
+weapon: HeavyBowgun
+----
+Makes Spread Ammo fire 3 at a time. Horrendously overpowered, obviously.
+====
+_: 2 3 => 2 2
