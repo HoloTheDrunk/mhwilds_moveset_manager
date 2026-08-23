@@ -433,7 +433,7 @@ function Parser:parse_modifier_gravity()
 end
 
 if not debug.getinfo(3) then
-  local mv, err = Parser.new([[
+  local content = [[
 name: My Moveset
 author: Me
 weapon: Hammer
@@ -446,10 +446,17 @@ Not very useful.
 0: 2 6 => 2 37 | Final
 _: 2 37 => 2 6 | AfterMove(1, 2) | Final
 2 6 => 2 38 | Final | AfterSwap(1) | Gravity(1.2)
-]]):parse()
+]]
+
+  if #arg > 0 and arg[1] == "--stdin" then
+    content = io.stdin:read("*a")
+  end
+
+  local mv, err = Parser.new(content):parse()
 
   if not mv then
     print(err)
+    os.exit(1)
   else
     print(tostring(mv))
   end

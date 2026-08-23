@@ -133,13 +133,15 @@ function Moveset:__tostring()
   end
 
   local description = ""
-  first_line = true
-  for line in self.description:gmatch("[^\n]+") do
-    if first_line then
-      description = line
-      first_line = false
-    else
-      description = description .. "\n" .. (" "):rep(15) .. line
+  if self.description then
+    first_line = true
+    for line in self.description:gmatch("[^\n]+") do
+      if first_line then
+        description = line
+        first_line = false
+      else
+        description = description .. "\n" .. (" "):rep(15) .. line
+      end
     end
   end
   return string.format([[Moveset {
