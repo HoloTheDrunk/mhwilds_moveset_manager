@@ -32,10 +32,14 @@ end
 ---@class M_AfterSwap : M_Base
 ---@field id integer
 
+---@class M_Gravity : M_Base
+---@field g2 number
+
 ---@class Modifiers
 ---@field final? M_Final
 ---@field after_move? M_AfterMove
 ---@field after_swap? M_AfterSwap
+---@field gravity? M_Gravity
 
 ---@alias Category integer
 ---@alias Index integer
@@ -121,6 +125,9 @@ function Moveset:__tostring()
     if modifiers.after_swap then
       swaps_str = swaps_str ..
           string.format(" | AfterSwap(%d)", modifiers.after_swap.id)
+    end
+    if modifiers.gravity then
+      swaps_str = swaps_str .. string.format(" | Gravity(%.2f)", modifiers.gravity.g2)
     end
     if modifiers.final then swaps_str = swaps_str .. " | Final" end
   end

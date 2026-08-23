@@ -23,35 +23,107 @@ function Parser.new(input)
 end
 
 ---@alias ProcessingFunc fun(lexer: Lexer, tok: LexedToken, dst: string, field: string): string?
----@alias ProcessingTarget {dst: string, field: string}
----@alias SequenceStep { tok: Token, process?: [ProcessingTarget, ProcessingFunc], _default?: Token }
----@param sequence SequenceStep[]
+---@alias ProcessingTarget { dst: string, field: string }
+---@alias SequenceTerminal { tok: Token, process?: [ProcessingTarget, ProcessingFunc] }
+---@alias SequenceChoice { choices: SequenceStep }
+---@alias SequenceOptional { optional: SequenceStep, revert?: fun(): nil }
+---@alias SequenceStep SequenceTerminal | SequenceOptional | SequenceChoice | Sequence
+---@alias Sequence SequenceStep[]
+
+---@param term SequenceTerminal
+---@return string? err
+function Parser:parse_sequence_terminal(term)
+  local cur = self.lexer:next()
+
+  if not cur or cur.tok ~= term.tok then
+    local err = string.format("Invalid swap syntax. Expected '%s'", lexer_lib.tok_name[term.tok])
+    if not cur then return err .. "." end
+    if cur.tok ~= term.tok then
+      err = err .. string.format(" got '%s' ('%s').", lexer_lib.tok_name[cur.tok], self.lexer:from_span(cur.span))
+    end
+    return debug.traceback(err)
+  end
+
+  if term.process then
+    local target = term.process[1]
+    local fn = term.process[2]
+    local err = fn(self.lexer, cur, target[1], target[2])
+    if err then return debug.traceback(err) end
+  end
+end
+
+---@param opt SequenceOptional
+function Parser:parse_sequence_optional(opt)
+  self.lexer:begin_scope()
+  local err = self:parse_sequence_dispatch(opt.optional)
+  if err then
+    if opt.revert then
+      opt.revert()
+    end
+    self.lexer:cancel_scope()
+    return
+  end
+  self.lexer:end_scope()
+end
+
+-- function Parser:debug_state()
+--   local s = ""
+--   for _, token in ipairs(self.lexer.tokens) do
+--     s = s .. " " .. self.lexer:from_span(token.span)
+--   end
+--   s = s ..
+--       ("\ncurrent: %d -> %s (%s)"):format(
+--         self.lexer._tok_index,
+--         lexer_lib.tok_name[self.lexer.tokens[self.lexer._tok_index].tok],
+--         self.lexer:from_span(self.lexer.tokens[self.lexer._tok_index].span)
+--       )
+--   print(s)
+-- end
+
+---@param choice SequenceChoice
+---@return string? err
+function Parser:parse_sequence_choice(choice)
+  local success = false
+  local err
+  for _, option in ipairs(choice.choices) do
+    self.lexer:begin_scope()
+    err = self:parse_sequence_dispatch(option)
+    if err then
+      self.lexer:cancel_scope()
+    else
+      self.lexer:end_scope()
+      success = true
+      break
+    end
+  end
+  if not success then
+    return "No valid next step found while parsing. Last parsing error was: " .. err
+  end
+end
+
+---@param step SequenceStep
+---@return string? err
+function Parser:parse_sequence_dispatch(step)
+  if step.tok then
+    return self:parse_sequence_terminal(step --[[@as SequenceTerminal]])
+  elseif step.optional then
+    return self:parse_sequence_optional(step --[[@as SequenceOptional]])
+  elseif step.choices then
+    return self:parse_sequence_choice(step --[[@as SequenceChoice]])
+  else
+    return self:parse_sequence(step --[[@as Sequence]])
+  end
+end
+
+---@param sequence Sequence
 ---@return string? err
 function Parser:parse_sequence(sequence)
-  for position, step in ipairs(sequence) do
-    local tmp = self.lexer:next()
+  for _, step in ipairs(sequence) do
+    local tmp = self.lexer:peek()
+    if not tmp then return debug.traceback("Unexpected end of file.") end
 
-    -- Error handling
-    if not tmp or tmp.tok ~= step.tok then
-      -- Check for placeholder
-      if tmp and step._default and tmp.tok == step._default then goto continue end
-
-      local err = string.format("Invalid swap syntax. Expected '%s'", lexer_lib.tok_name[step.tok])
-      if not tmp then return err .. "." end
-      if tmp.tok ~= step.tok then
-        err = err .. string.format(" in position %d, got '%s'.", position, self.lexer:from_span(tmp.span))
-      end
-      return debug.traceback(err)
-    end
-
-    if step.process then
-      local target = step.process[1]
-      local fn = step.process[2]
-      local err = fn(self.lexer, tmp, target[1], target[2])
-      if err then return err end
-    end
-
-    ::continue::
+    local err = self:parse_sequence_dispatch(step)
+    if err then return err end
   end
 end
 
@@ -61,6 +133,14 @@ local function process_number(lexer, tok, dst, field)
   dst[field] = tonumber(str, 10)
 end
 
+---@type ProcessingFunc
+local function process_number_decimals(lexer, tok, dst, field)
+  local str = lexer:from_span(tok.span) --[[@as string]]
+  local num = tonumber(str) --[[@as number]]
+  local exp = math.floor(math.log(num, 10))
+  local dec = num / (10 ^ (exp + 1))
+  dst[field] = dst[field] + dec
+end
 
 ---@return Moveset?, string? error
 function Parser:parse()
@@ -110,16 +190,16 @@ function Parser:parse_metadata()
 
     -- Metadata definition is the only option left.
     if tok.tok ~= Token.IDENTIFIER then
-      return nil, string.format(
+      return nil, debug.traceback(string.format(
         "Unexpected token '%s' ('%s') in metadata section.",
         self.lexer:from_span(tok.span), lexer_lib.tok_name[tok.tok]
-      )
+      ))
     end
 
     -- Metadata definitions always need a separating colon.
     local peek = self.lexer:peek()
     if not peek or peek.tok ~= Token[":"] then
-      return nil, "Expected ':'."
+      return nil, debug.traceback("Expected ':'.")
     end
     -- Skip colon
     self.lexer:next()
@@ -137,22 +217,22 @@ function Parser:parse_metadata()
     })[lower]
     local err = parse_fn()
     if err then
-      return nil, err
+      return nil, debug.traceback(err)
     end
 
     ::continue::
   end
 
   if not metadata.name then
-    return nil, "Missing 'name' field in metadata section."
+    return nil, debug.traceback("Missing 'name' field in metadata section.")
   end
 
   if not metadata.author then
-    return nil, "Missing 'author' field in metadata section."
+    return nil, debug.traceback("Missing 'author' field in metadata section.")
   end
 
   if not metadata.weapon then
-    return nil, "Missing 'weapon' field in metadata section."
+    return nil, debug.traceback("Missing 'weapon' field in metadata section.")
   end
 
   return metadata
@@ -220,11 +300,17 @@ function Parser:parse_swap()
     -- TODO: Parse an underscore as a fallback and make it -1
     -- Having to give an ID to everything quickly gets tiring
     {
-      tok = Token.NUMBER,
-      process = { { data, "id" }, process_number },
-      _default = Token["_"],
+      optional = {
+        {
+          choices = {
+            { tok = Token.NUMBER, process = { { data, "id" }, process_number } },
+            { tok = Token["_"] }
+          }
+        },
+        { tok = Token[":"] },
+      },
+      revert = function() data.id = -1 end,
     },
-    { tok = Token[":"] },
     { tok = Token.NUMBER, process = { { data, "from_1" }, process_number } },
     { tok = Token.NUMBER, process = { { data, "from_2" }, process_number } },
     { tok = Token["="] },
@@ -265,6 +351,7 @@ function Parser:parse_modifier(modifiers)
     final = self.parse_modifier_final,
     after_swap = self.parse_modifier_after_swap,
     after_move = self.parse_modifier_after_move,
+    gravity = self.parse_modifier_gravity,
   })[lower]
   if not parse_fn then return string.format("Unrecognized modifier '%s'.", self.lexer:from_span(name.span)) end
 
@@ -320,6 +407,31 @@ function Parser:parse_modifier_after_move()
   return res
 end
 
+---@return M_Gravity?, string? error
+function Parser:parse_modifier_gravity()
+  ---@type M_Gravity
+  local res = {
+    enabled = true,
+    g2 = -9.81,
+  }
+
+  local error = self:parse_sequence({
+    { tok = Token["("] },
+    { tok = Token.NUMBER, process = { { res, "g2" }, process_number } },
+    {
+      optional = {
+        { tok = Token["."] },
+        { tok = Token.NUMBER, process = { { res, "g2" }, process_number_decimals } },
+      }
+    },
+    { tok = Token[")"] },
+  })
+
+  if error then return nil, error end
+
+  return res
+end
+
 if not debug.getinfo(3) then
   local mv, err = Parser.new([[
 name: My Moveset
@@ -332,8 +444,8 @@ Switches Big Bang I and Overhead Smash I around.
 Not very useful.
 ====
 0: 2 6 => 2 37 | Final
-1: 2 37 => 2 6 | AfterMove(1, 2) | Final
-_: 2 6 => 2 38 | Final | AfterSwap(1)
+_: 2 37 => 2 6 | AfterMove(1, 2) | Final
+2 6 => 2 38 | Final | AfterSwap(1) | Gravity(1.2)
 ]]):parse()
 
   if not mv then

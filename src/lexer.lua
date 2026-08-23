@@ -11,6 +11,7 @@ local Token = {
   [">"] = 8,
   ["|"] = 9,
   ["_"] = 10,
+  ["."] = 11,
   MAX_TOK = 100,
   IDENTIFIER = 101,
   NUMBER = 102,
@@ -47,12 +48,16 @@ end
 ---@field tok Token
 ---@field span [integer, integer]
 
+---@class Scope
+---@field tok_index integer
+
 ---@class Lexer
 ---@field input string Text data to be lexed.
 ---@field private index integer Cursor position in the input.
 ---@field tokens LexedToken[] Lexed tokens so far.
----@field private _peeked LexedToken? Temporary cache for the :peek calls.
+---@field private _tok_index integer
 ---@field private _buf string?
+---@field private _scopes Scope[]
 local Lexer = {}
 Lexer.__index = Lexer
 
@@ -63,14 +68,31 @@ function Lexer.new(input)
     input = input,
     index = 1,
     tokens = {},
-    peeked = nil,
+    _tok_index = 0,
+    _scopes = {}
   }, Lexer)
 end
 
 function Lexer:reset()
   self.index = 1
   self.tokens = {}
-  self._peeked = nil
+  self._tok_index = 0
+  self._scopes = {}
+end
+
+function Lexer:begin_scope()
+  self._scopes[#self._scopes + 1] = { tok_index = self._tok_index }
+end
+
+function Lexer:cancel_scope()
+  if #self._scopes == 0 then return end
+  self._tok_index = self._scopes[#self._scopes].tok_index
+  self._scopes[#self._scopes] = nil
+end
+
+function Lexer:end_scope()
+  if #self._scopes == 0 then return end
+  self._scopes[#self._scopes] = nil
 end
 
 ---@param span [integer, integer]
@@ -87,7 +109,7 @@ end
 ---@private
 ---@return nil
 function Lexer:_skip_whitespace()
-  self._peeked = nil
+  self._tok_index = #self.tokens
   while is_whitespace(self.input:sub(self.index, self.index)) do
     self.index = self.index + 1
   end
@@ -95,7 +117,7 @@ end
 
 ---@return boolean EOF
 function Lexer:skip_line()
-  self._peeked = nil
+  self._tok_index = #self.tokens
   local s, e = self.input:find("\n", self.index)
   self.index = e and e + 1 or #self.input + 1
   return s == nil
@@ -105,24 +127,17 @@ end
 function Lexer:next()
   local peeked = self:peek()
   if peeked then
-    -- print(self.input:sub(peeked.span[1], peeked.span[2]))
-    -- print(string.format("tok: '%s', span: [%d, %d] => '%s'",
-    --   tok_name[peeked.tok], peeked.span[1], peeked.span[2],
-    --   self.input:sub(peeked.span[1], peeked.span[2])
-    -- ))
-    self.tokens[#self.tokens + 1] = peeked
-    self._peeked = nil
-    return self:last()
+    self._tok_index = self._tok_index + 1
   end
 
-  return nil
+  return peeked
 end
 
 ---@return string
 function Lexer:line()
-  if self._peeked then
-    self.index = self._peeked.span[1]
-    self._peeked = nil
+  if self._tok_index < #self.tokens then
+    self.index = self.tokens[#self.tokens].span[1]
+    self._tok_index = #self.tokens
   end
   local start = self.index
   local _, e = self.input:find("\n", self.index)
@@ -170,8 +185,8 @@ end
 function Lexer:peek()
   if self.index > #self.input then return end
 
-  if self._peeked then
-    return self._peeked
+  if self._tok_index < #self.tokens then
+    return self.tokens[self._tok_index + 1]
   end
 
   self:_skip_whitespace()
@@ -182,15 +197,15 @@ function Lexer:peek()
   local tok = Token[self._buf]
 
   if tok and tok < Token.MAX_TOK then
-    self._peeked = { tok = tok, span = { self.index, self.index } }
+    self.tokens[#self.tokens + 1] = { tok = tok, span = { self.index, self.index } }
     self.index = self.index + 1
   elseif is_alpha(self._buf) then
-    self._peeked = self:_lex_identifier()
+    self.tokens[#self.tokens + 1] = self:_lex_identifier()
   elseif is_number(self._buf) then
-    self._peeked = self:_lex_number()
+    self.tokens[#self.tokens + 1] = self:_lex_number()
   end
 
-  return self._peeked
+  return self.tokens[#self.tokens]
 end
 
 return { Lexer = Lexer, Token = Token, tok_name = tok_name }
