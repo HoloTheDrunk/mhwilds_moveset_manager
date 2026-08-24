@@ -137,6 +137,7 @@ end
 local function process_number_decimals(lexer, tok, dst, field)
   local str = lexer:from_span(tok.span) --[[@as string]]
   local num = tonumber(str) --[[@as number]]
+  if num == 0 then return end
   local exp = math.floor(math.log(num, 10))
   local dec = num / (10 ^ (exp + 1))
   dst[field] = dst[field] + dec
@@ -352,6 +353,7 @@ function Parser:parse_modifier(modifiers)
     after_swap = self.parse_modifier_after_swap,
     after_move = self.parse_modifier_after_move,
     gravity = self.parse_modifier_gravity,
+    time_scale = self.parse_modifier_time_scale,
   })[lower]
   if not parse_fn then return string.format("Unrecognized modifier '%s'.", self.lexer:from_span(name.span)) end
 
@@ -432,6 +434,31 @@ function Parser:parse_modifier_gravity()
   return res
 end
 
+---@return M_TimeScale?, string? error
+function Parser:parse_modifier_time_scale()
+  ---@type M_TimeScale
+  local res = {
+    enabled = true,
+    ts = 1,
+  }
+
+  local error = self:parse_sequence({
+    { tok = Token["("] },
+    { tok = Token.NUMBER, process = { { res, "ts" }, process_number } },
+    {
+      optional = {
+        { tok = Token["."] },
+        { tok = Token.NUMBER, process = { { res, "ts" }, process_number_decimals } },
+      }
+    },
+    { tok = Token[")"] },
+  })
+
+  if error then return nil, error end
+
+  return res
+end
+
 if not debug.getinfo(3) then
   local content = [[
 name: My Moveset
@@ -448,7 +475,17 @@ _: 2 37 => 2 6 | AfterMove(1, 2) | Final
 2 6 => 2 38 | Final | AfterSwap(1) | Gravity(1.2)
 ]]
 
-  if #arg > 0 and arg[1] == "--stdin" then
+  content = [[
+name: Levi slide
+author: HoloTheDrunk
+weapon: DualBlades
+----
+Slide attack on unsheathe attack.
+====
+
+]]
+
+  if arg and #arg > 0 and arg[1] == "--stdin" then
     content = io.stdin:read("*a")
   end
 
@@ -456,7 +493,9 @@ _: 2 37 => 2 6 | AfterMove(1, 2) | Final
 
   if not mv then
     print(err)
-    os.exit(1)
+    if not re then
+      os.exit(1)
+    end
   else
     print(tostring(mv))
   end

@@ -2,5 +2,6 @@
   "$schema": "https://raw.githubusercontent.com/LuaLS/vscode-lua/master/setting/schema.json",
   "workspace.library": ["./REFrameworkLuaTypedef/dist/"],
   "runtime.version": "Lua 5.4",
+  "runtime.path": ["src/?.lua"],
   "hint.enable": true
 }

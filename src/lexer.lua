@@ -183,13 +183,12 @@ end
 
 ---@return LexedToken?
 function Lexer:peek()
-  if self.index > #self.input then return end
-
   if self._tok_index < #self.tokens then
     return self.tokens[self._tok_index + 1]
   end
 
   self:_skip_whitespace()
+  if self.index > #self.input then return end
 
   self.index = self.index - 1
   self:_read()

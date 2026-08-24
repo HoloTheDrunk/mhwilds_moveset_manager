@@ -1,0 +1,7 @@
+name: Quick idle vault
+author: HoloTheDrunk
+weapon: InsectGlaive
+----
+Makes the Vault from idle animation faster and lower gravity.
+====
+2 34 => 2 34 | Gravity(0.5) | TimeScale(2.0) | Final

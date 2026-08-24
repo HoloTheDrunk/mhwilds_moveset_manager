@@ -35,11 +35,15 @@ end
 ---@class M_Gravity : M_Base
 ---@field g2 number
 
+---@class M_TimeScale : M_Base
+---@field ts number
+
 ---@class Modifiers
 ---@field final? M_Final
 ---@field after_move? M_AfterMove
 ---@field after_swap? M_AfterSwap
 ---@field gravity? M_Gravity
+---@field time_scale? M_TimeScale
 
 ---@alias Category integer
 ---@alias Index integer
@@ -127,7 +131,10 @@ function Moveset:__tostring()
           string.format(" | AfterSwap(%d)", modifiers.after_swap.id)
     end
     if modifiers.gravity then
-      swaps_str = swaps_str .. string.format(" | Gravity(%.2f)", modifiers.gravity.g2)
+      swaps_str = swaps_str .. string.format(" | Gravity(%.1f)", modifiers.gravity.g2)
+    end
+    if modifiers.time_scale then
+      swaps_str = swaps_str .. string.format(" | TimeScale(%.1f)", modifiers.time_scale.ts)
     end
     if modifiers.final then swaps_str = swaps_str .. " | Final" end
   end

@@ -5,6 +5,15 @@ local settings = {
   debug = true,
 }
 
+local game = {
+  ---@type REManagedObject
+  player_mgr = sdk.get_managed_singleton("app.PlayerManager") --[[@as REManagedObject]],
+  ---@type REManagedObject?
+  player = nil,
+  ---@type REManagedObject?
+  hunter_character = nil,
+}
+
 local manager = Manager.new()
 manager:load_movesets()
 manager:load_config()
@@ -23,6 +32,10 @@ local actions = {}
 
 local modifiers = {
   final = false,
+  ---@type number?
+  ts = nil,
+  ---@type number?
+  g = nil,
 }
 
 local prev = {
@@ -54,6 +67,9 @@ if change_action_req_method then
     if not weapon_type then return end
 
     do
+      modifiers.g = nil
+      modifiers.ts = nil
+
       local action_id = args[4]
       local category = sdk.get_native_field(action_id, action_id_type, "_Category")
       local index = sdk.get_native_field(action_id, action_id_type, "_Index")
@@ -67,6 +83,12 @@ if change_action_req_method then
       if swap then
         prev.swap = swap.id
         modifiers.final = swap.modifiers.final and swap.modifiers.final.enabled
+        if swap.modifiers.gravity and swap.modifiers.gravity.enabled then
+          modifiers.g = swap.modifiers.gravity.g2
+        end
+        if swap.modifiers.time_scale and swap.modifiers.time_scale.enabled then
+          modifiers.ts = swap.modifiers.time_scale.ts
+        end
 
         sdk.set_native_field(action_id, action_id_type, "_Category", swap.to[1])
         sdk.set_native_field(action_id, action_id_type, "_Index", swap.to[2])
@@ -86,9 +108,35 @@ if change_action_req_method then
   end)
 end
 
+re.on_frame(function()
+  if not game.player then
+    game.player = game.player_mgr:call("getMasterPlayer")
+  end
+
+  if game.player and not game.hunter_character then
+    game.hunter_character = game.player:call("get_Character")
+  end
+
+  if game.player then
+    -- NaN check
+    if modifiers.ts ~= modifiers.ts then modifiers.ts = 1 end
+    game.player
+        :call("get_Controller")
+        :call("get_GameObject")
+        :call("set_TimeScale", modifiers.ts and modifiers.ts + 0.0001 or 1.)
+  end
+
+  if game.hunter_character and modifiers.g then
+    -- NaN check
+    if modifiers.g ~= modifiers.g then modifiers.g = 1 end
+    game.hunter_character:call("set_Gravity2", -9.81 * modifiers.g)
+  end
+end)
+
 re.on_draw_ui(function()
   if imgui.tree_node("Moveset Manager") then
     _, settings.enabled = imgui.checkbox("Enable", settings.enabled)
+    imgui.text(string.format("TimeScale: %s (%s)", tostring(type(modifiers.ts)), modifiers.ts))
     imgui.begin_disabled(not settings.enabled)
 
     if imgui.button("Reload") then
