@@ -1,5 +1,5 @@
-local lib = require("lib")
-local Moveset, Weapon = lib.Moveset, lib.Weapon
+local moveset_lib = require("moveset")
+local Moveset, Weapon = moveset_lib.Moveset, moveset_lib.Weapon
 
 local lexer_lib = require("lexer")
 local Lexer, Token = lexer_lib.Lexer, lexer_lib.Token

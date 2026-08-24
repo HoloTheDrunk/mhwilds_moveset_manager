@@ -113,16 +113,17 @@ function Graph:compile()
   return result
 end
 
+local files = { "lexer.lua", "parser.lua", "moveset.lua", "moveset_manager.lua", "main.lua" }
+
 local g = Graph.new()
-g:add_file("moveset_manager.lua")
-g:add_file("lexer.lua")
-g:add_file("parser.lua")
-g:add_file("lib.lua")
+for _, file in ipairs(files) do
+  g:add_file(file)
+end
 local result, err = g:compile()
 if result then
   local added = 0
   for _, _ in pairs(g._added) do added = added + 1 end
-  if added ~= 4 then
+  if added ~= #files then
     print("Didn't process all the files")
     goto err
   end
