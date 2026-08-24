@@ -73,10 +73,11 @@ if change_action_req_method then
       local action_id = args[4]
       local category = sdk.get_native_field(action_id, action_id_type, "_Category")
       local index = sdk.get_native_field(action_id, action_id_type, "_Index")
-      current_action = { category = category, index = index }
 
       -- Ignore seikret actions
       if category == 0 and index > 400 then goto finish end
+
+      current_action = { category = category, index = index }
 
       local tbl = manager.weapons[weapon_type]
       if not tbl or not tbl.active then goto finish end
