@@ -12,6 +12,8 @@ local game = {
   player = nil,
   ---@type REManagedObject?
   hunter_character = nil,
+  ---@type REManagedObject?
+  weapon_handling = nil,
 }
 
 local manager = Manager.new()
@@ -45,22 +47,39 @@ local prev = {
   swap = nil,
 }
 
+local function finish_check(ret)
+  if current_action then
+    prev.move = { current_action.category, current_action.index }
+  end
+  return ret
+end
+
+-- TODO: use args[2] (self) to check if it's the player's hunter
 if change_action_req_method then
   sdk.hook(change_action_req_method, function(args)
     local ret = sdk.PreHookResult.CALL_ORIGINAL
 
-    if not settings.enabled then goto finish end
+    if not settings.enabled then return finish_check(ret) end
 
     if modifiers.final then
       modifiers.final = false
-      goto finish
+      return finish_check(ret)
     end
 
-    if not game.hunter_character or game.hunter_character ~= sdk.to_managed_object(args[2]) then goto finish end
+    if not game.hunter_character or game.hunter_character ~= sdk.to_managed_object(args[2]) then return finish_check(ret) end
 
     ---@type boolean, integer?
-    _, weapon_type = pcall(game.hunter_character.call, game.hunter_character, "get_WeaponType")
-    if not weapon_type then return end
+    local _, new_weapon_type = pcall(game.hunter_character.call, game.hunter_character, "get_WeaponType")
+    if not new_weapon_type then return finish_check(ret) end
+    if weapon_type ~= new_weapon_type then
+      game.weapon_handling = nil
+      weapon_type = new_weapon_type
+    end
+
+    if not game.weapon_handling then
+      game.weapon_handling = game.hunter_character:call("get_WeaponHandling")
+    end
+    if not game.weapon_handling then return finish_check(ret) end
 
     do
       modifiers.g = nil
@@ -73,10 +92,10 @@ if change_action_req_method then
       current_action = { category = category, index = index }
 
       local tbl = manager.weapons[weapon_type]
-      if not tbl or not tbl.active then goto finish end
+      if not tbl or not tbl.active then return finish_check(ret) end
 
       local moveset = tbl.movesets[tbl.active]
-      local swap = moveset:get_swap(category, index, prev.move, prev.swap)
+      local swap = moveset:get_swap(category, index, game.hunter_character, prev.move, prev.swap)
       if swap then
         prev.swap = swap.id
         modifiers.final = swap.modifiers.final and swap.modifiers.final.enabled
@@ -97,11 +116,7 @@ if change_action_req_method then
       end
     end
 
-    ::finish::
-    if current_action then
-      prev.move = { current_action.category, current_action.index }
-    end
-    return ret
+    return finish_check(ret)
   end)
 end
 

@@ -1,3 +1,5 @@
+local modifier_lib = require("modifiers")
+
 ---@enum Weapon
 local Weapon = {
   GreatSword = 0,
@@ -20,8 +22,117 @@ for name, index in pairs(Weapon) do
   weapon_name[index] = name
 end
 
+---@enum AmmoType
+local AmmoType = {
+  Current = 0,
+  Normal = 1,
+  Pierce = 2,
+  Spread = 3,
+  Flaming = 4,
+  Water = 5,
+  Thunder = 6,
+  Freeze = 7,
+  Dragon = 8,
+  Paralysis = 9,
+  Sleep = 10,
+  Poison = 11,
+  Exhaust = 12,
+  Sticky = 13,
+  Cluster = 14,
+  Wyvern = 15,
+  Slicing = 16,
+  Tranq = 17,
+  Recover = 18,
+  Demon = 19,
+  Armor = 20,
+}
+
+---@alias Comparison "=" | "!=" | ">" | ">=" | "<" | "<="
+
+---@enum SharpnessLevel
+local SharpnessLevel = {
+  Red = 0,
+  Orange = 1,
+  Yellow = 2,
+  Green = 3,
+  Blue = 4,
+  White = 5,
+  Purple = 6,
+  Cyan = 7, -- Would be funny
+}
+
+---@enum ExtractColor
+local ExtractColor = {
+  Red = 0,
+  White = 1,
+  Orange = 2
+}
+
+-- Attribute start
+
+---@class Attribute
+
+---@class ValueAttribute : Attribute
+---@field _value boolean
+---@field comparison Comparison
+
+---@class Sharpness : ValueAttribute
+---@field _sharpness boolean
+---@field level SharpnessLevel
+
+---@class Ammo : ValueAttribute
+---@field _ammo boolean
+---@field type AmmoType
+---@field capacity? integer
+---@field loaded? integer
+---@field pouch? integer
+---@field total? integer
+
+---@class GaugeCharge : ValueAttribute
+---@field _gauge boolean
+---@field fill number Between 0 and 1
+
+---@class SpiritGauge : ValueAttribute
+---@field _spirit_gauge boolean
+---@field level integer
+
+---@class ToggleAttribute : Attribute
+---@field _toggle boolean
+
+-- Insect Glaive
+---@class Extract : ToggleAttribute
+---@field _extract boolean
+---@field color ExtractColor
+
+-- Dual Blades
+---@class DemonMode : ToggleAttribute
+---@field _demon_mode boolean
+
+---@class ArchdemonMode : ToggleAttribute
+---@field _archdemon_mode boolean
+
+-- Switch Axe
+---@class SwordMode : ToggleAttribute
+---@field _sword_mode boolean
+
+-- Charge Blade
+---@class ShieldCharged : ToggleAttribute
+---@field _shield_charged boolean
+
+---@class AxeCharged : ToggleAttribute
+---@field _axe_charged boolean
+
+---@class SwordCharged : ToggleAttribute
+---@field _sword_charged boolean
+
+
+-- Attribute end
+-- Modifiers start
+
 ---@class M_Base
 ---@field enabled boolean
+
+-- Structural modifiers
 
 ---@class M_Final : M_Base
 
@@ -32,18 +143,36 @@ end
 ---@class M_AfterSwap : M_Base
 ---@field id integer
 
+---@class M_CheckAttrib : M_Base
+---@field invert? boolean
+---@field attribute Attribute
+
+-- Functional modifiers
+
 ---@class M_Gravity : M_Base
 ---@field g2 number
 
 ---@class M_TimeScale : M_Base
 ---@field ts number
 
+-- Long Sword
+-- TODO: .addAuraLevel .consumeAuraLevel
+
+---@class M_AuraIncrease : M_Base
+---@field _aura_increase boolean
+
+---@class M_AuraDecrease : M_Base
+---@field _aura_decrease boolean
+
 ---@class Modifiers
 ---@field final? M_Final
 ---@field after_move? M_AfterMove
 ---@field after_swap? M_AfterSwap
+---@field check_attrib? M_CheckAttrib[]
 ---@field gravity? M_Gravity
 ---@field time_scale? M_TimeScale
+
+-- Modifiers end
 
 ---@alias Category integer
 ---@alias Index integer
@@ -80,10 +209,11 @@ end
 
 ---@param category Category
 ---@param index Index
+---@param hunter_character REManagedObject
 ---@param prev_move Action
 ---@param prev_swap integer?
 ---@return Swap?
-function Moveset:get_swap(category, index, prev_move, prev_swap)
+function Moveset:get_swap(category, index, hunter_character, prev_move, prev_swap)
   for _, swap in ipairs(self.swaps) do
     local from, modifiers = swap.from, swap.modifiers
 
@@ -106,6 +236,12 @@ function Moveset:get_swap(category, index, prev_move, prev_swap)
         break
       end
 
+      if modifiers.check_attrib then
+        for _, modifier in ipairs(modifiers.check_attrib) do
+          modifier_lib.check_attribute(modifier, hunter_character)
+        end
+      end
+
       return swap
     until true
   end
@@ -122,6 +258,7 @@ function Moveset:__tostring()
       swaps_str = swaps_str .. "\n" .. (" "):rep(9)
     end
     swaps_str = swaps_str .. string.format("%s: %d %d => %d %d", id == -1 and "_" or id, from[1], from[2], to[1], to[2])
+    if modifiers.final then swaps_str = swaps_str .. " | Final" end
     if modifiers.after_move then
       swaps_str = swaps_str ..
           string.format(" | AfterMove(%d, %d)", modifiers.after_move.category, modifiers.after_move.index)
@@ -130,13 +267,21 @@ function Moveset:__tostring()
       swaps_str = swaps_str ..
           string.format(" | AfterSwap(%d)", modifiers.after_swap.id)
     end
+    if modifiers.check_attrib and #modifiers.check_attrib > 0 then
+      for _, check in ipairs(modifiers.check_attrib) do
+        if not check.enabled then goto continue end
+
+        swaps_str = swaps_str .. string.format(" | CheckAttrib(???)")
+
+        ::continue::
+      end
+    end
     if modifiers.gravity then
       swaps_str = swaps_str .. string.format(" | Gravity(%.1f)", modifiers.gravity.g2)
     end
     if modifiers.time_scale then
       swaps_str = swaps_str .. string.format(" | TimeScale(%.1f)", modifiers.time_scale.ts)
     end
-    if modifiers.final then swaps_str = swaps_str .. " | Final" end
   end
 
   local description = ""

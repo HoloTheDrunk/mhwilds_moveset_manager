@@ -27,6 +27,7 @@ end
 ---@alias SequenceTerminal { tok: Token, process?: [ProcessingTarget, ProcessingFunc] }
 ---@alias SequenceChoice { choices: SequenceStep }
 ---@alias SequenceOptional { optional: SequenceStep, revert?: fun(): nil }
+---@alias SequenceSubparse { subparse: fun(...): nil }
 ---@alias SequenceStep SequenceTerminal | SequenceOptional | SequenceChoice | Sequence
 ---@alias Sequence SequenceStep[]
 
@@ -125,6 +126,12 @@ function Parser:parse_sequence(sequence)
     local err = self:parse_sequence_dispatch(step)
     if err then return err end
   end
+end
+
+---@type ProcessingFunc
+local function process_not(lexer, tok, dst, field)
+  if lexer:from_span(tok.span) ~= "not" then return end
+  dst[field] = true
 end
 
 ---@type ProcessingFunc
@@ -298,8 +305,6 @@ function Parser:parse_swap()
   }
 
   local err = self:parse_sequence({
-    -- TODO: Parse an underscore as a fallback and make it -1
-    -- Having to give an ID to everything quickly gets tiring
     {
       optional = {
         {
@@ -405,6 +410,36 @@ function Parser:parse_modifier_after_move()
   })
 
   if error then return nil, error end
+
+  return res
+end
+
+---@return M_CheckAttrib?, string? error
+function Parser:parse_modifier_check_attrib()
+  ---@type M_CheckAttrib
+  local res = {
+    enabled = true,
+    invert = false,
+    ---@type Attribute?
+    attribute = nil,
+  }
+
+  local tmp = {
+    ---@type string?
+    name = nil
+  }
+
+  local error = self:parse_sequence({
+    { tok = Token["("] },
+    { optional = { tok = Token.IDENTIFIER, process = { { res, "invert" }, process_not } } },
+    -- TODO: create sub_parse sequence variant to parse args based on name
+    { tok = Token.IDENTIFIER },
+    { tok = Token[")"] },
+  })
+
+  if not res.attribute then
+    return nil, debug.traceback("Failed to parse attribute.")
+  end
 
   return res
 end

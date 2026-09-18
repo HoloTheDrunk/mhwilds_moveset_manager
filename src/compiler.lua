@@ -74,7 +74,8 @@ function Graph:compile()
       cycle_or_missing = false
       self._added[path] = string.format("module_%d", added_count + 1)
       added_count = added_count + 1
-      result = string.format("%s\nlocal %s = (function()\n%s\nend)()", result, self._added[path], file.content)
+      result = result ..
+          string.format("-- %s\nlocal %s = (function()\n%s\nend)()", path, self._added[path], file.content)
       ::continue::
     end
 
@@ -113,7 +114,7 @@ function Graph:compile()
   return result
 end
 
-local files = { "lexer.lua", "parser.lua", "moveset.lua", "moveset_manager.lua", "main.lua" }
+local files = { "lexer.lua", "parser.lua", "modifiers.lua", "moveset.lua", "moveset_manager.lua", "main.lua" }
 
 local g = Graph.new()
 for _, file in ipairs(files) do
