@@ -24,7 +24,6 @@ local change_action_req_method = hunter_type and
 
 local action_id_type = sdk.find_type_definition("ace.ACTION_ID") --[[@as RETypeDefinition]]
 
-local hunter_character = nil
 ---@type integer?
 local weapon_type = nil
 local current_action = nil
@@ -57,13 +56,10 @@ if change_action_req_method then
       goto finish
     end
 
-    if not hunter_character then
-      hunter_character = sdk.to_managed_object(args[2])
-    end
-    if not hunter_character then goto finish end
+    if not game.hunter_character or game.hunter_character ~= sdk.to_managed_object(args[2]) then goto finish end
 
     ---@type boolean, integer?
-    _, weapon_type = pcall(hunter_character.call, hunter_character, "get_WeaponType")
+    _, weapon_type = pcall(game.hunter_character.call, game.hunter_character, "get_WeaponType")
     if not weapon_type then return end
 
     do
@@ -73,9 +69,6 @@ if change_action_req_method then
       local action_id = args[4]
       local category = sdk.get_native_field(action_id, action_id_type, "_Category")
       local index = sdk.get_native_field(action_id, action_id_type, "_Index")
-
-      -- Ignore seikret actions
-      if category == 0 and index > 400 then goto finish end
 
       current_action = { category = category, index = index }
 
@@ -96,7 +89,7 @@ if change_action_req_method then
 
         sdk.set_native_field(action_id, action_id_type, "_Category", swap.to[1])
         sdk.set_native_field(action_id, action_id_type, "_Index", swap.to[2])
-        hunter_character:call(
+        game.hunter_character:call(
           "changeActionRequest(app.AppActionDef.LAYER, ace.ACTION_ID, System.Boolean)",
           args[3], action_id, args[5])
 
