@@ -2,20 +2,24 @@
 
 set -e
 
-[ ! -f "archive.sh" ] && echo "Must be in moveset_manager repo directory to run." >&2 && exit 1
+start_dir="$(pwd)"
 
 [ $# -lt 1 ] && echo "Usage: ./archive.sh <version>" >&2 && exit 1
+
+# go to repo dir
+cd "$(dirname "$0")"
+
 VERSION="$1"
 FOLDER_NAME="moveset_manager_v$VERSION"
 
 # Generate single .lua file
 cd src
 lua compiler.lua
-cd -
+cd ..
 
-[ ! -d "artefacts" ] && mkdir artefacts
+[ ! -d artefacts ] && mkdir artefacts
 
-cd artefacts/
+cd artefacts
 
 mkdir -p tmp/reframework/autorun
 mv ../src/output.lua tmp/reframework/autorun/moveset_manager.lua
@@ -39,4 +43,4 @@ mv tmp "$FOLDER_NAME"
 zip -r moveset_manager.zip "$FOLDER_NAME"
 rm -rf "$FOLDER_NAME"
 
-cd -
+cd "$start_dir"

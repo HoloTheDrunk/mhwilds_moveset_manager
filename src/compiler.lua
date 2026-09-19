@@ -1,6 +1,3 @@
-local dbg = require("debugger")
-dbg.auto_where = 5
-
 ---@param module_path string
 ---@return string
 local function module_to_path(module_path)
@@ -50,7 +47,6 @@ function Graph:compile()
     local cycle_or_missing = true
     for path, file in pairs(self.files) do
       if self._added[path] then
-        -- dbg()
         goto continue
       end
 
@@ -58,7 +54,6 @@ function Graph:compile()
         -- Unresolved dependencies
         for _, dep in pairs(file.deps) do
           if not self._added[dep.file_path] then
-            -- dbg()
             goto continue
           end
         end
