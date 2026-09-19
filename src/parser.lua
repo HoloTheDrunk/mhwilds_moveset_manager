@@ -4,6 +4,11 @@ local Moveset, Weapon = moveset_lib.Moveset, moveset_lib.Weapon
 local lexer_lib = require("lexer")
 local Lexer, Token = lexer_lib.Lexer, lexer_lib.Token
 
+local modifier_lib = require("modifiers._mod")
+
+local parsing_utils = require("utils.parsing")
+local process = parsing_utils.process
+
 ---@param str string
 ---@return string
 function string.trim(str)
@@ -22,8 +27,8 @@ function Parser.new(input)
   }, Parser)
 end
 
----@alias ProcessingFunc fun(lexer: Lexer, tok: LexedToken, dst: string, field: string): string?
----@alias ProcessingTarget { dst: string, field: string }
+---@alias ProcessingFunc fun(lexer: Lexer, tok: LexedToken, dst: table, field: string): string?
+---@alias ProcessingTarget [ table, string ] Destination table and field name.
 ---@alias SequenceTerminal { tok: Token, process?: [ProcessingTarget, ProcessingFunc] }
 ---@alias SequenceChoice { choices: SequenceStep }
 ---@alias SequenceOptional { optional: SequenceStep, revert?: fun(): nil }
@@ -126,28 +131,6 @@ function Parser:parse_sequence(sequence)
     local err = self:parse_sequence_dispatch(step)
     if err then return err end
   end
-end
-
----@type ProcessingFunc
-local function process_not(lexer, tok, dst, field)
-  if lexer:from_span(tok.span) ~= "not" then return end
-  dst[field] = true
-end
-
----@type ProcessingFunc
-local function process_number(lexer, tok, dst, field)
-  local str = lexer:from_span(tok.span) --[[@as string]]
-  dst[field] = tonumber(str, 10)
-end
-
----@type ProcessingFunc
-local function process_number_decimals(lexer, tok, dst, field)
-  local str = lexer:from_span(tok.span) --[[@as string]]
-  local num = tonumber(str) --[[@as number]]
-  if num == 0 then return end
-  local exp = math.floor(math.log(num, 10))
-  local dec = num / (10 ^ (exp + 1))
-  dst[field] = dst[field] + dec
 end
 
 ---@return Moveset?, string? error
@@ -309,7 +292,7 @@ function Parser:parse_swap()
       optional = {
         {
           choices = {
-            { tok = Token.NUMBER, process = { { data, "id" }, process_number } },
+            { tok = Token.NUMBER, process = { { data, "id" }, process.number } },
             { tok = Token["_"] }
           }
         },
@@ -317,12 +300,12 @@ function Parser:parse_swap()
       },
       revert = function() data.id = -1 end,
     },
-    { tok = Token.NUMBER, process = { { data, "from_1" }, process_number } },
-    { tok = Token.NUMBER, process = { { data, "from_2" }, process_number } },
+    { tok = Token.NUMBER, process = { { data, "from_1" }, process.number } },
+    { tok = Token.NUMBER, process = { { data, "from_2" }, process.number } },
     { tok = Token["="] },
     { tok = Token[">"] },
-    { tok = Token.NUMBER, process = { { data, "to_1" }, process_number } },
-    { tok = Token.NUMBER, process = { { data, "to_2" }, process_number } },
+    { tok = Token.NUMBER, process = { { data, "to_1" }, process.number } },
+    { tok = Token.NUMBER, process = { { data, "to_2" }, process.number } },
   })
   if err then return nil, err end
 
@@ -352,66 +335,17 @@ function Parser:parse_modifier(modifiers)
       self.lexer:from_span(name.span), lexer_lib.tok_name[name.tok]
     )
   end
-  local lower = self.lexer:from_span(name.span):gsub("([a-z])([A-Z])", "%1_%2"):lower()
-  local parse_fn = ({
-    final = self.parse_modifier_final,
-    after_swap = self.parse_modifier_after_swap,
-    after_move = self.parse_modifier_after_move,
-    gravity = self.parse_modifier_gravity,
-    time_scale = self.parse_modifier_time_scale,
-  })[lower]
-  if not parse_fn then return string.format("Unrecognized modifier '%s'.", self.lexer:from_span(name.span)) end
 
-  local res, error = parse_fn(self)
-  if not res then return string.format("Modifier '%s': %s", self.lexer:from_span(name.span), error) end
+  local modifier_name = self.lexer:from_span(name.span) --[[@as string]]
 
-  modifiers[lower] = res
-end
+  local class = modifier_lib[modifier_name]
+  if not class then return string.format("Unrecognized modifier '%s'.", modifier_name) end
 
----@return M_Final
-function Parser:parse_modifier_final()
-  return { enabled = true }
-end
+  local modifier, error = class.parse(self)
+  if not modifier then return string.format("Modifier '%s': %s", modifier_name, error) end
 
----@return M_AfterSwap?, string? error
-function Parser:parse_modifier_after_swap()
-  ---@type M_AfterSwap
-  local res = {
-    enabled = true,
-    id = -1
-  }
-
-  local error = self:parse_sequence({
-    { tok = Token["("] },
-    { tok = Token.NUMBER, process = { { res, "id" }, process_number } },
-    { tok = Token[")"] },
-  })
-
-  if error then return nil, error end
-
-  return res
-end
-
----@return M_AfterMove?, string? error
-function Parser:parse_modifier_after_move()
-  ---@type M_AfterMove
-  local res = {
-    enabled = true,
-    category = -1,
-    index = -1,
-  }
-
-  local error = self:parse_sequence({
-    { tok = Token["("] },
-    { tok = Token.NUMBER, process = { { res, "category" }, process_number } },
-    { tok = Token[","] },
-    { tok = Token.NUMBER, process = { { res, "index" }, process_number } },
-    { tok = Token[")"] },
-  })
-
-  if error then return nil, error end
-
-  return res
+  local lower = modifier_name:gsub("([a-z])([A-Z])", "%1_%2"):lower()
+  modifiers[lower] = modifier
 end
 
 ---@return M_CheckAttrib?, string? error
@@ -431,7 +365,7 @@ function Parser:parse_modifier_check_attrib()
 
   local error = self:parse_sequence({
     { tok = Token["("] },
-    { optional = { tok = Token.IDENTIFIER, process = { { res, "invert" }, process_not } } },
+    { optional = { tok = Token.IDENTIFIER, process = { { res, "invert" }, process["not"] } } },
     -- TODO: create sub_parse sequence variant to parse args based on name
     { tok = Token.IDENTIFIER },
     { tok = Token[")"] },
@@ -440,56 +374,6 @@ function Parser:parse_modifier_check_attrib()
   if not res.attribute then
     return nil, debug.traceback("Failed to parse attribute.")
   end
-
-  return res
-end
-
----@return M_Gravity?, string? error
-function Parser:parse_modifier_gravity()
-  ---@type M_Gravity
-  local res = {
-    enabled = true,
-    g2 = -9.81,
-  }
-
-  local error = self:parse_sequence({
-    { tok = Token["("] },
-    { tok = Token.NUMBER, process = { { res, "g2" }, process_number } },
-    {
-      optional = {
-        { tok = Token["."] },
-        { tok = Token.NUMBER, process = { { res, "g2" }, process_number_decimals } },
-      }
-    },
-    { tok = Token[")"] },
-  })
-
-  if error then return nil, error end
-
-  return res
-end
-
----@return M_TimeScale?, string? error
-function Parser:parse_modifier_time_scale()
-  ---@type M_TimeScale
-  local res = {
-    enabled = true,
-    ts = 1,
-  }
-
-  local error = self:parse_sequence({
-    { tok = Token["("] },
-    { tok = Token.NUMBER, process = { { res, "ts" }, process_number } },
-    {
-      optional = {
-        { tok = Token["."] },
-        { tok = Token.NUMBER, process = { { res, "ts" }, process_number_decimals } },
-      }
-    },
-    { tok = Token[")"] },
-  })
-
-  if error then return nil, error end
 
   return res
 end
@@ -508,16 +392,6 @@ Not very useful.
 0: 2 6 => 2 37 | Final
 _: 2 37 => 2 6 | AfterMove(1, 2) | Final
 2 6 => 2 38 | Final | AfterSwap(1) | Gravity(1.2)
-]]
-
-  content = [[
-name: Levi slide
-author: HoloTheDrunk
-weapon: DualBlades
-----
-Slide attack on unsheathe attack.
-====
-
 ]]
 
   if arg and #arg > 0 and arg[1] == "--stdin" then

@@ -1,7 +1,7 @@
 ---@meta
 
 ---@class Modifier
----@field _enabled boolean
+---@field enabled boolean
 Modifier = {}
 
 ---Called when the modifier name has already been parsed.

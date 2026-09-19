@@ -2,24 +2,26 @@
 local Final = {}
 Final.__index = Final
 
----@return Final, string? error
+---@return Final?, string? error
 ---@diagnostic disable-next-line:unused-local
 function Final.parse(parser)
   return setmetatable({}, Final), nil
 end
 
-function Final.name()
+function Final:name()
   return "Final"
 end
 
-function Final.description()
-  return "Stops the swap chain after the swap this modifier is on."
+function Final:description()
+  return "Stops the swap chain after the swap this modifier is applied to."
 end
 
 function Final:enable()
-  self._enabled = true
+  self.enabled = true
 end
 
 function Final:disable()
-  self._enabled = false
+  self.enabled = false
 end
+
+return Final
