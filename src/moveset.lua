@@ -47,7 +47,7 @@ local AmmoType = {
   Armor = 20,
 }
 
----@alias Comparison "=" | "!=" | ">" | ">=" | "<" | "<="
+-- -@alias Comparison "=" | "!=" | ">" | ">=" | "<" | "<="
 
 ---@enum SharpnessLevel
 local SharpnessLevel = {
@@ -134,15 +134,6 @@ local ExtractColor = {
 
 -- Structural modifiers
 
----@class M_Final : M_Base
-
----@class M_AfterMove : M_Base
----@field category integer
----@field index integer
-
----@class M_AfterSwap : M_Base
----@field id integer
-
 ---@class M_CheckAttrib : M_Base
 ---@field invert? boolean
 ---@field attribute Attribute
@@ -165,9 +156,9 @@ local ExtractColor = {
 ---@field _aura_decrease boolean
 
 ---@class Modifiers
----@field final? M_Final
----@field after_move? M_AfterMove
----@field after_swap? M_AfterSwap
+---@field final? Final
+---@field after_move? AfterMove
+---@field after_swap? AfterSwap
 ---@field check_attrib? M_CheckAttrib[]
 ---@field gravity? M_Gravity
 ---@field time_scale? M_TimeScale

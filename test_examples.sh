@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 
 dir="$(dirname "$0")"
 buf="$(mktemp)"

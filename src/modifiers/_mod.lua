@@ -4,4 +4,5 @@ return {
   AfterSwap = require("modifiers.after_swap"),
   Gravity = require("modifiers.gravity"),
   Timescale = require("modifiers.timescale"),
+  CheckRenkiGauge = require("modifiers.longsword.check_renki_gauge"),
 }

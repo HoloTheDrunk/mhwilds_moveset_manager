@@ -1,6 +1,15 @@
 local lexerlib = require("lexer")
 local Token = lexerlib.Token
 
+---@enum Comparison
+local Comparison = {
+  ["="] = 0,
+  [">"] = 1,
+  [">="] = 2,
+  ["<"] = 3,
+  ["<="] = 4,
+}
+
 ---@type ProcessingFunc
 local function process_not(lexer, tok, dst, field)
   if lexer:from_span(tok.span) ~= "not" then return end
@@ -28,11 +37,27 @@ local function process_identifier(lexer, tok, dst, field)
   dst[field] = lexer:from_span(tok.span)
 end
 
+---@type ProcessingFunc
+local function process_comparison(lexer, tok, dst, field)
+  if tok == Token["="] then
+    if dst[field] == Comparison[">"] then
+      dst[field] = Comparison[">="]
+    elseif dst[field] == Comparison["<"] then
+      dst[field] = Comparison["<="]
+    end
+  elseif tok == Token[">"] then
+    dst[field] = Comparison[">"]
+  elseif tok == Token["<"] then
+    dst[field] = Comparison["<"]
+  end
+end
+
 ---@enum ArgType
 local ArgType = {
   INTEGER = 0,
   NUMBER = 1,
   IDENTIFIER = 2,
+  COMPARISON = 3,
 }
 
 ---@alias ModifierArgDef { name?: string, type: ArgType, target: ProcessingTarget }
@@ -66,10 +91,30 @@ local function build_identifier_arg_sequence(target)
   }
 end
 
+---@param target ProcessingTarget
+---@return Sequence
+local function build_comparison_arg_sequence(target)
+  return {
+    {
+      choices = {
+        { tok = Token["="], process = { target, process_comparison } },
+        { tok = Token[">"], process = { target, process_comparison } },
+        { tok = Token["<"], process = { target, process_comparison } },
+      },
+    },
+    {
+      optional = {
+        { tok = Token["="], process = { target, process_comparison } }
+      }
+    },
+  }
+end
+
 local builders = {
   [ArgType.INTEGER] = build_integer_arg_sequence,
   [ArgType.NUMBER] = build_number_arg_sequence,
   [ArgType.IDENTIFIER] = build_identifier_arg_sequence,
+  [ArgType.COMPARISON] = build_comparison_arg_sequence,
 }
 
 ---@param parser Parser
@@ -95,6 +140,7 @@ local function parse_args(parser, args)
 end
 
 return {
+  Comparison = Comparison,
   ArgType = ArgType,
   process = {
     ["not"] = process_not,
