@@ -1,14 +1,44 @@
 local lexerlib = require("lexer")
 local Token = lexerlib.Token
 
----@enum Comparison
-local Comparison = {
+---@enum ComparisonType
+local ComparisonType = {
   ["="] = 0,
   [">"] = 1,
   [">="] = 2,
   ["<"] = 3,
   ["<="] = 4,
 }
+
+---@class Comparison
+---@field type ComparisonType
+---@field value number
+local Comparison = {}
+Comparison.__index = Comparison
+
+---@param type? ComparisonType Defaults to '='
+---@param value? number Defaults to 0
+function Comparison.new(type, value)
+  return setmetatable({
+    type = type or ComparisonType["="],
+    value = value or 0,
+  }, Comparison)
+end
+
+---@param value number
+---@return boolean
+function Comparison:check(value)
+  local ret = false
+  if self.type == ComparisonType[">"] or self.type == ComparisonType[">="] then
+    ret = ret or value > self.value
+  elseif self.type == ComparisonType["<"] or self.type == ComparisonType["<="] then
+    ret = ret or value < self.value
+  end
+  if self.type == ComparisonType["="] or self.type == ComparisonType[">="] or self.type == ComparisonType["<="] then
+    ret = ret or value == self.value
+  end
+  return ret
+end
 
 ---@type ProcessingFunc
 local function process_not(lexer, tok, dst, field)
@@ -38,17 +68,19 @@ local function process_identifier(lexer, tok, dst, field)
 end
 
 ---@type ProcessingFunc
-local function process_comparison(lexer, tok, dst, field)
+local function process_comparison(_, tok, dst, field)
+  ---@type Comparison
+  local comparison = dst[field]
   if tok == Token["="] then
-    if dst[field] == Comparison[">"] then
-      dst[field] = Comparison[">="]
-    elseif dst[field] == Comparison["<"] then
-      dst[field] = Comparison["<="]
+    if comparison.type == ComparisonType[">"] then
+      comparison.type = ComparisonType[">="]
+    elseif comparison.type == ComparisonType["<"] then
+      comparison.type = ComparisonType["<="]
     end
   elseif tok == Token[">"] then
-    dst[field] = Comparison[">"]
+    comparison.type = ComparisonType[">"]
   elseif tok == Token["<"] then
-    dst[field] = Comparison["<"]
+    comparison.type = ComparisonType["<"]
   end
 end
 
@@ -94,6 +126,8 @@ end
 ---@param target ProcessingTarget
 ---@return Sequence
 local function build_comparison_arg_sequence(target)
+  ---@type Comparison
+  local comparison = target[1][target[2]]
   return {
     {
       choices = {
@@ -107,6 +141,9 @@ local function build_comparison_arg_sequence(target)
         { tok = Token["="], process = { target, process_comparison } }
       }
     },
+    -- NOTE: Only works because it's at the end of the table.
+    -- Unpacking in the middle of a table literal only unpacks the first value.
+    table.unpack(build_number_arg_sequence({ comparison, "value" }))
   }
 end
 
@@ -140,6 +177,7 @@ local function parse_args(parser, args)
 end
 
 return {
+  ComparisonType = ComparisonType,
   Comparison = Comparison,
   ArgType = ArgType,
   process = {

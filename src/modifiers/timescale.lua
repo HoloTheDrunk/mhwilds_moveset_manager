@@ -20,7 +20,7 @@ function Timescale.parse(parser)
 
   if error then return nil, error end
 
-  return res, nil
+  return res
 end
 
 function Timescale:name()

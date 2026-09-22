@@ -3,7 +3,6 @@ local ArgType, parse_args, Comparison = utils.ArgType, utils.parse_args, utils.C
 
 ---@class CheckRenkiGauge : Modifier
 ---@field comparison Comparison
----@field value number
 local CheckRenkiGauge = {}
 CheckRenkiGauge.__index = CheckRenkiGauge
 
@@ -12,22 +11,16 @@ function CheckRenkiGauge.parse(parser)
   ---@type CheckRenkiGauge
   local res = {
     enabled = true,
-    comparison = Comparison["="],
-    value = 1.,
+    comparison = Comparison.new(),
   }
 
   local error = parse_args(parser, {
     { type = ArgType.COMPARISON, target = { res, "comparison" } },
-    { type = ArgType.NUMBER,     target = { res, "value" } },
   })
 
   if error then return nil, error end
 
-  -- if not res.comparison then
-  --   return nil, debug.traceback("[CheckRenkiGauge] Missing comparison.")
-  -- end
-
-  return res, nil
+  return res
 end
 
 function CheckRenkiGauge:name()
