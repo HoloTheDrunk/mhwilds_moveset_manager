@@ -2,7 +2,8 @@
 ---! Defines a standard structure for action swap mods.
 
 local moveset_lib = require("moveset")
-local Weapon, weapon_name = moveset_lib.Weapon, moveset_lib.weapon_name
+local data = require("data")
+local Weapon, weapon_name = data.Weapon, data.weapon_name
 
 local Parser = require("parser")
 

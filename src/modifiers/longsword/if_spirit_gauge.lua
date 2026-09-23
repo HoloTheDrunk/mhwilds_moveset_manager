@@ -1,5 +1,6 @@
 local utils = require("utils.parsing")
 local ArgType, parse_args, Comparison = utils.ArgType, utils.parse_args, utils.Comparison
+local Weapon = require("moveset").Weapon
 
 ---@class IfSpiritGauge : Check
 ---@field comparison Comparison
@@ -40,7 +41,9 @@ function IfSpiritGauge:disable()
 end
 
 function IfSpiritGauge:check(state)
-  -- TODO:
+  if not state.game.weapon_type == Weapon.LongSword then return false end
+  local aura_level = state.game.weapon_handling:call("get_AuraLevel")
+  return self.comparison:check(aura_level)
 end
 
 function IfSpiritGauge:__tostring()
