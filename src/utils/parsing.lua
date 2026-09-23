@@ -9,6 +9,11 @@ local ComparisonType = {
   ["<"] = 3,
   ["<="] = 4,
 }
+---@type string[]
+local comparison_type_to_string = {}
+for str, i in pairs(ComparisonType) do
+  comparison_type_to_string[i] = str
+end
 
 ---@class Comparison
 ---@field type ComparisonType
@@ -40,6 +45,10 @@ function Comparison:check(value)
   return ret
 end
 
+function Comparison:__tostring()
+  return comparison_type_to_string[self.type] .. self.value
+end
+
 ---@type ProcessingFunc
 local function process_not(lexer, tok, dst, field)
   if lexer:from_span(tok.span) ~= "not" then return end
@@ -60,6 +69,11 @@ local function process_number_decimals(lexer, tok, dst, field)
   local exp = math.floor(math.log(num, 10))
   local dec = num / (10 ^ (exp + 1))
   dst[field] = dst[field] + dec
+end
+
+---@type ProcessingFunc
+local function process_number_percentage(_, _, dst, field)
+  dst[field] = dst[field] / 100
 end
 
 ---@type ProcessingFunc
@@ -111,6 +125,9 @@ local function build_number_arg_sequence(target)
         { tok = Token["."] },
         { tok = Token.NUMBER, process = { target, process_number_decimals } },
       }
+    },
+    {
+      optional = { tok = Token["%"], process = { target, process_number_percentage } }
     }
   }
 end
@@ -187,4 +204,5 @@ return {
     identifier = process_identifier,
   },
   parse_args = parse_args,
+  comparison_type_to_string = comparison_type_to_string,
 }

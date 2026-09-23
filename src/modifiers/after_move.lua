@@ -1,7 +1,7 @@
 local utils = require("utils.parsing")
 local ArgType, parse_args = utils.ArgType, utils.parse_args
 
----@class AfterMove : Modifier
+---@class AfterMove : Check
 ---@field category integer
 ---@field index integer
 local AfterMove = {}
@@ -14,7 +14,7 @@ function AfterMove.parse(parser)
     enabled = true,
     category = -1,
     index = -1,
-  }, AfterMove)
+  } --[[@as AfterMove]], AfterMove)
 
   local error = parse_args(parser, {
     { type = ArgType.INTEGER, target = { res, "category" } },
@@ -40,6 +40,16 @@ end
 
 function AfterMove:disable()
   self.enabled = false
+end
+
+function AfterMove:check(state)
+  return state.prev
+      and state.prev.move[1] == self.category
+      and state.prev.move[2] == self.index
+end
+
+function AfterMove:__tostring()
+  return string.format("AfterMove(%d, %d)", self.category, self.index)
 end
 
 return AfterMove

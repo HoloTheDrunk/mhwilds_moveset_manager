@@ -5,5 +5,5 @@ weapon: LongSword
 Spinning Crimson Slash by inputting a Fade Slash after Spirit Blade III.
 Follow it up with another Fade Slash input to perform a Spirit Release Slash.
 ====
-1: 2 6 => 2 14 | AfterMove(2, 12) | CheckRenkiGauge(>=0.3)
+1: 2 6 => 2 14 | AfterMove(2, 12) | IfRenkiGauge(>=30%)
 _: 2 6 => 2 22 | AfterSwap(1)

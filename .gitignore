@@ -1,2 +1,3 @@
 artefacts/
-output.lua
+**/output.lua
+**/debugger.lua

@@ -132,20 +132,6 @@ local ExtractColor = {
 ---@class M_Base
 ---@field enabled boolean
 
--- Structural modifiers
-
----@class M_CheckAttrib : M_Base
----@field invert? boolean
----@field attribute Attribute
-
--- Functional modifiers
-
----@class M_Gravity : M_Base
----@field g2 number
-
----@class M_TimeScale : M_Base
----@field ts number
-
 -- Long Sword
 -- TODO: .addAuraLevel .consumeAuraLevel
 
@@ -156,12 +142,9 @@ local ExtractColor = {
 ---@field _aura_decrease boolean
 
 ---@class Modifiers
+---@field checks Check[]
+---@field effects Effect[]
 ---@field final? Final
----@field after_move? AfterMove
----@field after_swap? AfterSwap
----@field check_attrib? M_CheckAttrib[]
----@field gravity? M_Gravity
----@field time_scale? M_TimeScale
 
 -- Modifiers end
 
@@ -200,41 +183,19 @@ end
 
 ---@param category Category
 ---@param index Index
----@param hunter_character REManagedObject
----@param prev_move Action
----@param prev_swap integer?
+---@param state ModState
 ---@return Swap?
-function Moveset:get_swap(category, index, hunter_character, prev_move, prev_swap)
+function Moveset:get_swap(category, index, state)
   for _, swap in ipairs(self.swaps) do
-    local from, modifiers = swap.from, swap.modifiers
-
-    repeat
-      if from[1] ~= category or from[2] ~= index then
-        break
-      end
-
-      if modifiers.after_move and modifiers.after_move.enabled
-          and (modifiers.after_move.category ~= prev_move[1]
-            or modifiers.after_move.index ~= prev_move[2])
-      then
-        break
-      end
-
-      if prev_swap and modifiers.after_swap
-          and modifiers.after_swap.enabled
-          and modifiers.after_swap.id ~= prev_swap
-      then
-        break
-      end
-
-      if modifiers.check_attrib then
-        for _, modifier in ipairs(modifiers.check_attrib) do
-          modifier_lib.check_attribute(modifier, hunter_character)
+    if swap.from[1] == category and swap.from[2] == index then
+      for _, check in ipairs(swap.modifiers.checks) do
+        if check.enabled then
+          check:check(state)
         end
       end
 
       return swap
-    until true
+    end
   end
 end
 
@@ -242,36 +203,37 @@ function Moveset:__tostring()
   local first_line = true
   local swaps_str = ""
   for _, swap in pairs(self.swaps) do
-    local id, from, to, modifiers = swap.id, swap.from, swap.to, swap.modifiers
+    local id, from, to = swap.id, swap.from, swap.to
     if first_line then
       first_line = false
     else
       swaps_str = swaps_str .. "\n" .. (" "):rep(9)
     end
     swaps_str = swaps_str .. string.format("%s: %d %d => %d %d", id == -1 and "_" or id, from[1], from[2], to[1], to[2])
-    if modifiers.final then swaps_str = swaps_str .. " | Final" end
-    if modifiers.after_move then
-      swaps_str = swaps_str ..
-          string.format(" | AfterMove(%d, %d)", modifiers.after_move.category, modifiers.after_move.index)
-    end
-    if modifiers.after_swap then
-      swaps_str = swaps_str ..
-          string.format(" | AfterSwap(%d)", modifiers.after_swap.id)
-    end
-    if modifiers.check_attrib and #modifiers.check_attrib > 0 then
-      for _, check in ipairs(modifiers.check_attrib) do
-        if not check.enabled then goto continue end
 
-        swaps_str = swaps_str .. string.format(" | CheckAttrib(???)")
-
-        ::continue::
+    local function concat_modifier(modifier)
+      if modifier.__tostring then
+        swaps_str = swaps_str .. " | " .. tostring(modifier)
+      else
+        local name = modifier:name()
+        if not name then
+          name = "|ERROR|"
+        end
+        swaps_str = swaps_str .. string.format("[%s]", name)
       end
     end
-    if modifiers.gravity then
-      swaps_str = swaps_str .. string.format(" | Gravity(%.1f)", modifiers.gravity.g2)
+
+    for name, modifier in pairs(swap.modifiers) do
+      -- Avoid modifier categories
+      if name ~= "checks" and name ~= "effects" then
+        concat_modifier(modifier)
+      end
     end
-    if modifiers.time_scale then
-      swaps_str = swaps_str .. string.format(" | TimeScale(%.1f)", modifiers.time_scale.ts)
+    for _, check in ipairs(swap.modifiers.checks) do
+      concat_modifier(check)
+    end
+    for _, effect in ipairs(swap.modifiers.effects) do
+      concat_modifier(effect)
     end
   end
 

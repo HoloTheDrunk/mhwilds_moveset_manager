@@ -1,11 +1,11 @@
----@class Final : Modifier
+---@class Final : Special
 local Final = {}
 Final.__index = Final
 
 ---@return Final?, string? error
 ---@diagnostic disable-next-line:unused-local
 function Final.parse(parser)
-  return setmetatable({}, Final), nil
+  return setmetatable({ is_special = true } --[[@as Final]], Final), nil
 end
 
 function Final:name()
@@ -22,6 +22,10 @@ end
 
 function Final:disable()
   self.enabled = false
+end
+
+function Final:__tostring()
+  return "Final"
 end
 
 return Final

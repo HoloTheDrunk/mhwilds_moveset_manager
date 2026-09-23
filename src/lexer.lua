@@ -13,6 +13,7 @@ local Token = {
   ["|"] = 10,
   ["_"] = 11,
   ["."] = 12,
+  ["%"] = 13,
   MAX_TOK = 100,
   IDENTIFIER = 101,
   NUMBER = 102,

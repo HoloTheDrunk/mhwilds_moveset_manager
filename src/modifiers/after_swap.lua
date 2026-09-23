@@ -1,7 +1,7 @@
 local utils = require("utils.parsing")
 local parse_args, ArgType = utils.parse_args, utils.ArgType
 
----@class AfterSwap : Modifier
+---@class AfterSwap : Check
 ---@field id integer
 local AfterSwap = {}
 AfterSwap.__index = AfterSwap
@@ -12,7 +12,7 @@ function AfterSwap.parse(parser)
   local res = setmetatable({
     enabled = true,
     id = -1
-  }, AfterSwap)
+  } --[[@as AfterSwap]], AfterSwap)
 
   local error = parse_args(parser, {
     { type = ArgType.INTEGER, target = { res, "id" } }
@@ -37,6 +37,14 @@ end
 
 function AfterSwap:disable()
   self.enabled = false
+end
+
+function AfterSwap:check(state)
+  return state.prev and state.prev.swap == self.id
+end
+
+function AfterSwap:__tostring()
+  return string.format("AfterSwap(%d)", self.id)
 end
 
 return AfterSwap

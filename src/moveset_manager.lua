@@ -92,6 +92,35 @@ function Manager:register(moveset)
   return true
 end
 
+function Manager:reload()
+  ---@type table<Weapon, string>
+  local active = {}
+  for id, sets in pairs(self.weapons) do
+    if sets.active then
+      active[id] = sets.movesets[sets.active].name
+    end
+  end
+  self:clear()
+  self:load_movesets()
+  for weapon, name in pairs(active) do
+    if not self.weapons[weapon] then self.weapons[weapon] = { movesets = {} } end
+    for i, mv in ipairs(self.weapons[weapon].movesets) do
+      if mv.name == name then
+        self.weapons[weapon].active = i
+        break
+      end
+    end
+  end
+end
+
+---@param weapon_type Weapon
+---@return Moveset?
+function Manager:get_active_moveset(weapon_type)
+  local weapon_movesets = self.weapons[weapon_type]
+  if not weapon_movesets or not weapon_movesets.active then return end
+  return weapon_movesets.movesets[weapon_movesets.active]
+end
+
 function Manager:draw_ui()
   if #self.errors > 0 then
     imgui.text("Error: " .. self.errors[#self.errors])

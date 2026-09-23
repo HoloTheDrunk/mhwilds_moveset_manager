@@ -9,6 +9,8 @@ local modifier_lib = require("modifiers._mod")
 local parsing_utils = require("utils.parsing")
 local process = parsing_utils.process
 
+local dump = require("utils.pprint").dump
+
 ---@param str string
 ---@return string
 function string.trim(str)
@@ -310,7 +312,7 @@ function Parser:parse_swap()
   if err then return nil, err end
 
   ---@type Modifiers
-  local modifiers = {}
+  local modifiers = { checks = {}, effects = {} }
   while true do
     local peeked = self.lexer:peek()
     if not peeked or peeked.tok ~= Token["|"] then break end
@@ -345,37 +347,20 @@ function Parser:parse_modifier(modifiers)
   if not modifier then return string.format("Modifier '%s': %s", modifier_name, error) end
 
   local lower = modifier_name:gsub("([a-z])([A-Z])", "%1_%2"):lower()
-  modifiers[lower] = modifier
-end
 
----@return M_CheckAttrib?, string? error
-function Parser:parse_modifier_check_attrib()
-  ---@type M_CheckAttrib
-  local res = {
-    enabled = true,
-    invert = false,
-    ---@type Attribute?
-    attribute = nil,
-  }
-
-  local tmp = {
-    ---@type string?
-    name = nil
-  }
-
-  local error = self:parse_sequence({
-    { tok = Token["("] },
-    { optional = { tok = Token.IDENTIFIER, process = { { res, "invert" }, process["not"] } } },
-    -- TODO: create sub_parse sequence variant to parse args based on name
-    { tok = Token.IDENTIFIER },
-    { tok = Token[")"] },
-  })
-
-  if not res.attribute then
-    return nil, debug.traceback("Failed to parse attribute.")
+  if modifier.check then
+    modifiers.checks[#modifiers.checks + 1] = modifier --[[@as Check]]
+  elseif modifier.apply then
+    modifiers.effects[#modifiers.effects + 1] = modifier --[[@as Effect]]
+  elseif modifier.is_special then
+    modifiers[lower] = modifier
+  else
+    if re then
+      log.warn("Unclassifiable modifier: " .. dump(modifier))
+    else
+      print("Unclassifiable modifier: " .. dump(modifier))
+    end
   end
-
-  return res
 end
 
 if not debug.getinfo(3) then
