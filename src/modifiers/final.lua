@@ -5,7 +5,10 @@ Final.__index = Final
 ---@return Final?, string? error
 ---@diagnostic disable-next-line:unused-local
 function Final.parse(parser)
-  return setmetatable({ is_special = true } --[[@as Final]], Final), nil
+  return setmetatable({
+    enabled = true,
+    is_special = true,
+  } --[[@as Final]], Final), nil
 end
 
 function Final:name()

@@ -350,7 +350,7 @@ function Parser:parse_modifier(modifiers)
 
   if modifier.check then
     modifiers.checks[#modifiers.checks + 1] = modifier --[[@as Check]]
-  elseif modifier.apply then
+  elseif modifier.is_effect then
     modifiers.effects[#modifiers.effects + 1] = modifier --[[@as Effect]]
   elseif modifier.is_special then
     modifiers[lower] = modifier

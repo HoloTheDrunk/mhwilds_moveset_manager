@@ -11,6 +11,7 @@ function Timescale.parse(parser)
   ---@type Timescale
   local res = setmetatable({
     enabled = true,
+    is_effect = true,
     ts = 1.,
   } --[[@as Timescale]], Timescale)
 
@@ -39,13 +40,13 @@ function Timescale:disable()
   self.enabled = false
 end
 
-function Timescale:apply(state)
+function Timescale:on_frame(state)
   if self.ts ~= self.ts then self.ts = 1 end
   state.game.player
       :call("get_Controller")
       :call("get_GameObject")
   -- Adding this tiny offset seems to prevent the game from locking up mysteriously
-      :call("set_TimeScale", self.ts and state.effects.timescale + 0.0001 or 1.)
+      :call("set_TimeScale", self.ts and self.ts + 0.0001 or 1.)
 end
 
 function Timescale:__tostring()

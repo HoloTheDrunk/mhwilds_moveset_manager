@@ -5,6 +5,8 @@ local hunter_type = sdk.find_type_definition("app.HunterCharacter")
 local change_action_req_method = hunter_type and
     hunter_type:get_method("changeActionRequest(app.AppActionDef.LAYER, ace.ACTION_ID, System.Boolean)")
 
+local pprint = require("utils.pprint")
+
 local action_id_type = sdk.find_type_definition("ace.ACTION_ID") --[[@as RETypeDefinition]]
 
 if change_action_req_method then
@@ -23,6 +25,8 @@ if change_action_req_method then
 
     if not state.game:update_weapon() then return end
 
+    state.prev_swap = nil
+
     -- Get requested move IDs
     local action_id = args[4]
     ---@type integer
@@ -39,6 +43,7 @@ if change_action_req_method then
     if not swap then return end
 
     state:log_swap(swap)
+    log.info("Swap: " .. pprint.dump(swap))
 
     state.control.final = swap.modifiers.final and swap.modifiers.final.enabled or false
 
@@ -61,12 +66,21 @@ end
 re.on_frame(function()
   if not state.game:init() then return end
 
+
   if state.prev_swap then
     for _, effect in ipairs(state.prev_swap.modifiers.effects) do
+      log.info("[on_frame] effect " .. effect:name())
       if effect.on_frame then
         effect:on_frame(state)
       end
     end
+  else
+    -- Reset important game state
+    state.game.hunter_character:call("set_Gravity2", -9.81)
+    state.game.player
+        :call("get_Controller")
+        :call("get_GameObject")
+        :call("set_TimeScale", 1.)
   end
 end)
 
@@ -98,17 +112,20 @@ re.on_draw_ui(function()
 
     _, state.settings.debug = imgui.checkbox("Enable debug", state.settings.debug)
     if state.settings.debug then
-      imgui.text(string.format("TimeScale: %s",
-        state.game.player
-        :call("get_Controller")
-        :call("get_GameObject")
-        :call("get_TimeScale")
-      ))
-      imgui.text(string.format("Gravity: %s", state.game.hunter_character:call("get_Gravity2")))
+      if state.game:init() then
+        imgui.text(string.format("TimeScale: %s",
+          state.game.player
+          :call("get_Controller")
+          :call("get_GameObject")
+          :call("get_TimeScale")
+        ))
+        imgui.text(string.format("Gravity: %s", state.game.hunter_character:call("get_Gravity2")))
 
-      if state.game.weapon_type then
-        imgui.text("Weapon: " .. tostring(state.game.weapon_type))
+        if state.game.weapon_type then
+          imgui.text("Weapon: " .. tostring(state.game.weapon_type))
+        end
       end
+      imgui.get_cursor_pos()
       if #state.actions > 0 then
         imgui.separator()
 

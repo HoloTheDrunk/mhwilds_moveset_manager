@@ -43,6 +43,7 @@ function Check:check(state) end
 
 ---Any modifier that applies once the swap has been selected.
 ---@class Effect : Modifier
+---@field is_effect true
 Effect = {}
 
 ---@param state ModState

@@ -11,6 +11,7 @@ function Gravity.parse(parser)
   ---@type Gravity
   local res = setmetatable({
     enabled = true,
+    is_effect = true,
     factor = 1.,
   } --[[@as Gravity]], Gravity)
 
@@ -39,7 +40,7 @@ function Gravity:disable()
   self.enabled = false
 end
 
-function Gravity:apply(state)
+function Gravity:on_frame(state)
   if self.factor ~= self.factor then self.factor = 1. end
   state.game.hunter_character:call("set_Gravity2", -9.81 * self.factor)
 end
