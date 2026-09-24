@@ -5,8 +5,6 @@ local hunter_type = sdk.find_type_definition("app.HunterCharacter")
 local change_action_req_method = hunter_type and
     hunter_type:get_method("changeActionRequest(app.AppActionDef.LAYER, ace.ACTION_ID, System.Boolean)")
 
-local pprint = require("utils.pprint")
-
 local action_id_type = sdk.find_type_definition("ace.ACTION_ID") --[[@as RETypeDefinition]]
 
 if change_action_req_method then
