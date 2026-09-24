@@ -43,9 +43,10 @@ function AfterMove:disable()
 end
 
 function AfterMove:check(state)
-  return state.prev
-      and state.prev.move[1] == self.category
-      and state.prev.move[2] == self.index
+  local len = #state.actions
+  if len == 0 then return false end
+  local prev = state.actions[len]
+  return prev[1] == self.category and prev[2] == self.index
 end
 
 function AfterMove:__tostring()

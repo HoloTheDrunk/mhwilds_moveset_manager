@@ -40,7 +40,7 @@ function AfterSwap:disable()
 end
 
 function AfterSwap:check(state)
-  return state.prev and state.prev.swap == self.id
+  return state.prev_swap and state.prev_swap.id == self.id
 end
 
 function AfterSwap:__tostring()

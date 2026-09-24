@@ -43,7 +43,6 @@ if change_action_req_method then
     if not swap then return end
 
     state:log_swap(swap)
-    log.info("Swap: " .. pprint.dump(swap))
 
     state.control.final = swap.modifiers.final and swap.modifiers.final.enabled or false
 
@@ -65,7 +64,6 @@ end
 
 re.on_frame(function()
   if not state.game:init() then return end
-
 
   if state.prev_swap then
     for _, effect in ipairs(state.prev_swap.modifiers.effects) do

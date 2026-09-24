@@ -1,7 +1,7 @@
 local data = require("data")
 local Weapon, weapon_name = data.Weapon, data.weapon_name
 
--- Attribute start
+-- TODO: add these as modifiers
 
 ---@class Attribute
 
@@ -58,33 +58,18 @@ local Weapon, weapon_name = data.Weapon, data.weapon_name
 ---@class SwordCharged : ToggleAttribute
 ---@field _sword_charged boolean
 
-
--- Attribute end
--- Modifiers start
-
----@class M_Base
----@field enabled boolean
-
 -- Long Sword
 -- TODO: .addAuraLevel .consumeAuraLevel
-
----@class M_AuraIncrease : M_Base
----@field _aura_increase boolean
-
----@class M_AuraDecrease : M_Base
----@field _aura_decrease boolean
-
----@class Modifiers
----@field checks Check[]
----@field effects Effect[]
----@field final? Final
-
--- Modifiers end
 
 ---@alias Category integer
 ---@alias Index integer
 
 ---@alias Action [Category, Index]
+
+---@class Modifiers
+---@field checks Check[]
+---@field effects Effect[]
+---@field final? Final
 
 ---@class Swap
 ---@field id integer
@@ -121,13 +106,19 @@ end
 function Moveset:get_swap(category, index, state)
   for _, swap in ipairs(self.swaps) do
     if swap.from[1] == category and swap.from[2] == index then
+      local valid = true
+
       for _, check in ipairs(swap.modifiers.checks) do
-        if check.enabled then
-          check:check(state)
+        if check.enabled and not check:check(state) then
+          log.warn(string.format("[%s] rejected swap %d", check:name(), swap.id))
+          valid = false
+          break
         end
       end
 
-      return swap
+      if valid then
+        return swap
+      end
     end
   end
 end
