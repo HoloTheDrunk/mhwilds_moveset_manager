@@ -110,7 +110,6 @@ function Moveset:get_swap(category, index, state)
 
       for _, check in ipairs(swap.modifiers.checks) do
         if check.enabled and not check:check(state) then
-          log.warn(string.format("[%s] rejected swap %d", check:name(), swap.id))
           valid = false
           break
         end

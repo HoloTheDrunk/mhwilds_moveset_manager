@@ -135,8 +135,6 @@ end
 local files = {
   "state.lua",
   "data.lua",
-  "utils/parsing.lua",
-  "utils/pprint.lua",
   "lexer.lua",
   "parser.lua",
   "moveset.lua",
@@ -156,6 +154,14 @@ end
 
 -- Automatically add all new modifier files
 local paths = run_command("find modifiers -name '*.lua'  | grep -v '.*\\.d\\.lua'")
+if paths then
+  for path in paths:gmatch("(.-)\n") do
+    files[#files + 1] = path
+  end
+end
+
+-- Automatically add all new utils files
+paths = run_command("find utils -name '*.lua'  | grep -v '.*\\.d\\.lua'")
 if paths then
   for path in paths:gmatch("(.-)\n") do
     files[#files + 1] = path

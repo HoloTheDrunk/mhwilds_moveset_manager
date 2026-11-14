@@ -45,7 +45,7 @@ end
 function AfterMove:check(state)
   local len = #state.actions
   if len <= 1 then return false end
-  local prev = state.actions[len - 1]
+  local prev = state.actions[len]
   return prev[1] == self.category and prev[2] == self.index
 end
 

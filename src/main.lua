@@ -1,14 +1,27 @@
 local ModState = require("state")
 local state = ModState.new()
 
+local Logger = require("utils.logger")
+Logger:set_name("Moveset Manager")
+
+local dump = require("utils.pprint").dump
+
 local hunter_type = sdk.find_type_definition("app.HunterCharacter")
 local change_action_req_method = hunter_type and
     hunter_type:get_method("changeActionRequest(app.AppActionDef.LAYER, ace.ACTION_ID, System.Boolean)")
 
 local action_id_type = sdk.find_type_definition("ace.ACTION_ID") --[[@as RETypeDefinition]]
 
+-- Avoid recursive calling by only processing each call once.
+local call_processed = false
+
 if change_action_req_method then
   sdk.hook(change_action_req_method, function(args)
+    if call_processed then
+      call_processed = false
+      return
+    end
+
     if not state.settings.enabled then return end
     if not state.game:init() then return end
 
@@ -23,29 +36,40 @@ if change_action_req_method then
 
     if not state.game:update_weapon() then return end
 
-    state.prev_swap = nil
-
     -- Get requested move IDs
     local action_id = args[4]
+
     ---@type integer
     local category = sdk.get_native_field(action_id, action_id_type, "_Category")
     ---@type integer
     local index = sdk.get_native_field(action_id, action_id_type, "_Index")
 
-    state:log_action({ category, index })
-
     local moveset = state.manager:get_active_moveset(state.game.weapon_type)
-    if not moveset then return end
+    if not moveset then
+      state.prev_swap = nil
+      state:log_action({ category, index })
+      return
+    end
 
     local swap = moveset:get_swap(category, index, state)
-    if not swap then return end
+    if not swap then
+      state.prev_swap = nil
+      state:log_action({ category, index })
+      return
+    end
 
     state:log_swap(swap)
+    state:log_action({ swap.to[1], swap.to[2] })
+
+    Logger:log("info", "Swap: " .. dump(swap), "main")
 
     state.control.final = swap.modifiers.final and swap.modifiers.final.enabled or false
 
+    call_processed = true
+
     sdk.set_native_field(action_id, action_id_type, "_Category", swap.to[1])
     sdk.set_native_field(action_id, action_id_type, "_Index", swap.to[2])
+
     state.game.hunter_character:call(
       "changeActionRequest(app.AppActionDef.LAYER, ace.ACTION_ID, System.Boolean)",
       args[3], action_id, args[5])
@@ -108,6 +132,7 @@ re.on_draw_ui(function()
 
     _, state.settings.debug = imgui.checkbox("Enable debug", state.settings.debug)
     if state.settings.debug then
+      Logger:on_draw_ui()
       if state.game:init() then
         imgui.text(string.format("TimeScale: %s",
           state.game.player

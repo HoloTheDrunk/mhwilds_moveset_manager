@@ -1,3 +1,5 @@
+local Logger = require("utils.logger")
+
 local utils = require("utils.parsing")
 local parse_args, ArgType = utils.parse_args, utils.ArgType
 
