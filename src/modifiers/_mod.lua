@@ -4,6 +4,7 @@ return {
   AfterSwap = require("modifiers.after_swap"),
   Gravity = require("modifiers.gravity"),
   Timescale = require("modifiers.timescale"),
+  MotionSpeed = require("modifiers.motion_speed"),
   IfRenkiGauge = require("modifiers.longsword.if_renki_gauge"),
   IfSpiritGauge = require("modifiers.longsword.if_spirit_gauge"),
 }
