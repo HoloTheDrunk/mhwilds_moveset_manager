@@ -127,11 +127,7 @@ function Moveset:__tostring()
   local swaps_str = ""
   for _, swap in pairs(self.swaps) do
     local id, from, to = swap.id, swap.from, swap.to
-    if first_line then
-      first_line = false
-    else
-      swaps_str = swaps_str .. "\n" .. (" "):rep(9)
-    end
+    swaps_str = swaps_str .. "\n" .. (" "):rep(9)
     swaps_str = swaps_str .. string.format("%s: %d %d => %d %d", id == -1 and "_" or id, from[1], from[2], to[1], to[2])
 
     local function concat_modifier(modifier)

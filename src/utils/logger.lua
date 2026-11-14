@@ -59,12 +59,6 @@ function Logger:log(severity, message, source)
   end
 end
 
----@param id integer
----@return string?
-function Logger:format_log(id)
-
-end
-
 ---@return nil
 function Logger:flush()
   if not log then return end
@@ -82,8 +76,6 @@ function Logger:flush()
   end
   self.head = #self.logs + 1
 end
-
-local log_box_size = imgui.calc_text_size(("a\n"):rep(10)).y
 
 ---@return nil
 function Logger:on_draw_ui()

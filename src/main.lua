@@ -5,6 +5,7 @@ local Logger = require("utils.logger")
 Logger:set_name("Moveset Manager")
 
 local dump = require("utils.pprint").dump
+local get_screen_size = require("utils.engine").get_screen_size
 
 local hunter_type = sdk.find_type_definition("app.HunterCharacter")
 local change_action_req_method = hunter_type and
@@ -106,6 +107,24 @@ re.on_frame(function()
         :call("get_GameObject")
         :call("set_TimeScale", 1.)
   end
+
+  if state.settings.debug then
+    if #state.actions > 0 then
+      local screen_size = get_screen_size()
+      if not screen_size then return end
+
+      local top = #state.actions
+      local bottom = math.max(1, #state.actions - 10)
+      local font_size = imgui.get_default_font_size()
+      for i = top, bottom, -1 do
+        local action = state.actions[i]
+        local text = string.format("%d: %d", action[1], action[2])
+        draw.text(text, screen_size.x / 2,
+          screen_size.y - (font_size * 1.2 * 10) + font_size * 1.2 * (top - i),
+          0xffffffff)
+      end
+    end
+  end
 end)
 
 re.on_draw_ui(function()
@@ -136,33 +155,35 @@ re.on_draw_ui(function()
 
     _, state.settings.debug = imgui.checkbox("Enable debug", state.settings.debug)
     if state.settings.debug then
-      if state.game.weapon_type then
+      if state.game.weapon_type and imgui.collapsing_header("Moveset") then
         local mv = state.manager:get_active_moveset(state.game.weapon_type)
         imgui.text(tostring(mv))
       end
 
       Logger:on_draw_ui()
 
-      if state.game:init() then
+      if state.game:init() and imgui.collapsing_header("Stats") then
         imgui.text(string.format("TimeScale: %s",
           state.game.player
           :call("get_Controller")
           :call("get_GameObject")
           :call("get_TimeScale")
         ))
+        imgui.text(string.format("ActionMotionSpeed: %s", state.game.hunter_character:call("get_ActionMotionSpeed")))
         imgui.text(string.format("Gravity: %s", state.game.hunter_character:call("get_Gravity2")))
 
         if state.game.weapon_type then
           imgui.text("Weapon: " .. tostring(state.game.weapon_type))
         end
       end
-      imgui.get_cursor_pos()
-      if #state.actions > 0 then
-        imgui.separator()
 
-        for i = #state.actions, math.max(1, #state.actions - 10), -1 do
+      if imgui.collapsing_header("Action Log") and #state.actions > 0 then
+        local top = #state.actions
+        local bottom = math.max(1, #state.actions - 10)
+        for i = top, bottom, -1 do
           local action = state.actions[i]
-          imgui.text(string.format("%d: %d", action[1], action[2]))
+          local text = string.format("%d: %d", action[1], action[2])
+          imgui.text(text)
         end
       end
     end
