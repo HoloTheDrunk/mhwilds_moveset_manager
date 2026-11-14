@@ -1,11 +1,10 @@
-local ModState = require("state")
+local ModState = require("lib.state")
 local state = ModState.new()
 
-local Logger = require("utils.logger")
+local Logger = require("lib.utils.logger")
 Logger:set_name("Moveset Manager")
 
-local dump = require("utils.pprint").dump
-local get_screen_size = require("utils.engine").get_screen_size
+local get_screen_size = require("lib.utils.engine").get_screen_size
 
 local hunter_type = sdk.find_type_definition("app.HunterCharacter")
 local change_action_req_method = hunter_type and

@@ -1,4 +1,4 @@
-local lexerlib = require("lexer")
+local lexerlib = require("lib.lexer")
 local Token = lexerlib.Token
 
 ---@enum ComparisonType

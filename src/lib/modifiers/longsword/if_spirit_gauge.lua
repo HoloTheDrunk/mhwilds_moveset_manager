@@ -1,6 +1,6 @@
-local utils = require("utils.parsing")
+local utils = require("lib.utils.parsing")
 local ArgType, parse_args, Comparison = utils.ArgType, utils.parse_args, utils.Comparison
-local Weapon = require("moveset").Weapon
+local Weapon = require("lib.moveset").Weapon
 
 ---@class IfSpiritGauge : Check
 ---@field comparison Comparison

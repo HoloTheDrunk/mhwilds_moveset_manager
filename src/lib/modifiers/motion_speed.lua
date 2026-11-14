@@ -1,6 +1,4 @@
-local Logger = require("utils.logger")
-
-local utils = require("utils.parsing")
+local utils = require("lib.utils.parsing")
 local ArgType, parse_args = utils.ArgType, utils.parse_args
 
 ---@class MotionSpeed : Effect

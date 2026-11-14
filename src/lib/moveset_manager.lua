@@ -1,11 +1,10 @@
 ---! Moveset Manager
 ---! Defines a standard structure for action swap mods.
 
-local moveset_lib = require("moveset")
-local data = require("data")
+local data = require("lib.data")
 local Weapon, weapon_name = data.Weapon, data.weapon_name
 
-local Parser = require("parser")
+local Parser = require("lib.parser")
 
 ---@class WeaponMovesets
 ---@field movesets Moveset[]

@@ -133,12 +133,6 @@ function Graph:compile()
 end
 
 local files = {
-  "state.lua",
-  "data.lua",
-  "lexer.lua",
-  "parser.lua",
-  "moveset.lua",
-  "moveset_manager.lua",
   "main.lua",
 }
 
@@ -152,16 +146,8 @@ local function run_command(command)
   return result
 end
 
--- Automatically add all new modifier files
-local paths = run_command("find modifiers -name '*.lua'  | grep -v '.*\\.d\\.lua'")
-if paths then
-  for path in paths:gmatch("(.-)\n") do
-    files[#files + 1] = path
-  end
-end
-
--- Automatically add all new utils files
-paths = run_command("find utils -name '*.lua'  | grep -v '.*\\.d\\.lua'")
+-- Automatically add all library files
+local paths = run_command("find lib -name '*.lua'  | grep -v '.*\\.d\\.lua'")
 if paths then
   for path in paths:gmatch("(.-)\n") do
     files[#files + 1] = path

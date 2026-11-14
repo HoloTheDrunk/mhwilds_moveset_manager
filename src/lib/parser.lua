@@ -1,15 +1,15 @@
-local moveset_lib = require("moveset")
+local moveset_lib = require("lib.moveset")
 local Moveset, Weapon = moveset_lib.Moveset, moveset_lib.Weapon
 
-local lexer_lib = require("lexer")
+local lexer_lib = require("lib.lexer")
 local Lexer, Token = lexer_lib.Lexer, lexer_lib.Token
 
-local modifier_lib = require("modifiers._mod")
+local modifier_lib = require("lib.modifiers._mod")
 
-local parsing_utils = require("utils.parsing")
+local parsing_utils = require("lib.utils.parsing")
 local process = parsing_utils.process
 
-local dump = require("utils.pprint").dump
+local dump = require("lib.utils.pprint").dump
 
 ---@param str string
 ---@return string

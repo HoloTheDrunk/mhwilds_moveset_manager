@@ -1,4 +1,4 @@
-local utils = require("utils.parsing")
+local utils = require("lib.utils.parsing")
 local ArgType, parse_args, Comparison = utils.ArgType, utils.parse_args, utils.Comparison
 
 ---@class IfRenkiGauge : Check

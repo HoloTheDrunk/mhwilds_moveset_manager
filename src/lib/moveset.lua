@@ -1,4 +1,4 @@
-local data = require("data")
+local data = require("lib.data")
 local Weapon, weapon_name = data.Weapon, data.weapon_name
 
 -- TODO: add these as modifiers

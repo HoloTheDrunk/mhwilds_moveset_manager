@@ -1,4 +1,4 @@
-local Manager = require("moveset_manager")
+local Manager = require("lib.moveset_manager")
 
 ---@class GameState
 ---@field player_mgr REManagedObject
