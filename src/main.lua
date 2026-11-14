@@ -14,74 +14,74 @@ local action_id_type = sdk.find_type_definition("ace.ACTION_ID") --[[@as RETypeD
 
 -- Avoid recursive calling by only processing each call once.
 local call_processed = false
+local perform_on_swap_effects = false
 
 if change_action_req_method then
-  sdk.hook(change_action_req_method, function(args)
-    if call_processed then
-      call_processed = false
-      return
-    end
+  sdk.hook(change_action_req_method,
+    function(args)
+      if not state.settings.enabled then return end
+      if not state.game:init() then return end
 
-    if not state.settings.enabled then return end
-    if not state.game:init() then return end
-
-    if state.control.final then
-      state.control.final = false
-      return
-    end
-
-    if not state.game.hunter_character or state.game.hunter_character ~= sdk.to_managed_object(args[2]) then
-      return
-    end
-
-    if not state.game:update_weapon() then return end
-
-    -- Get requested move IDs
-    local action_id = args[4]
-
-    ---@type integer
-    local category = sdk.get_native_field(action_id, action_id_type, "_Category")
-    ---@type integer
-    local index = sdk.get_native_field(action_id, action_id_type, "_Index")
-
-    local moveset = state.manager:get_active_moveset(state.game.weapon_type)
-    if not moveset then
-      state.prev_swap = nil
-      state:log_action({ category, index })
-      return
-    end
-
-    local swap = moveset:get_swap(category, index, state)
-    if not swap then
-      state.prev_swap = nil
-      state:log_action({ category, index })
-      return
-    end
-
-    state:log_swap(swap)
-    state:log_action({ swap.to[1], swap.to[2] })
-
-    Logger:log("info", "Swap: " .. dump(swap), "main")
-
-    state.control.final = swap.modifiers.final and swap.modifiers.final.enabled or false
-
-    call_processed = true
-
-    sdk.set_native_field(action_id, action_id_type, "_Category", swap.to[1])
-    sdk.set_native_field(action_id, action_id_type, "_Index", swap.to[2])
-
-    state.game.hunter_character:call(
-      "changeActionRequest(app.AppActionDef.LAYER, ace.ACTION_ID, System.Boolean)",
-      args[3], action_id, args[5])
-
-    for _, effect in ipairs(state.prev_swap.modifiers.effects) do
-      if effect.on_swap then
-        effect:on_swap(state)
+      if state.control.final then
+        state.control.final = false
+        return
       end
-    end
 
-    return sdk.PreHookResult.SKIP_ORIGINAL
-  end)
+      if not state.game.hunter_character or state.game.hunter_character ~= sdk.to_managed_object(args[2]) then
+        return
+      end
+
+      if not state.game:update_weapon() then return end
+
+      -- Get requested move IDs
+      local action_id = args[4]
+
+      ---@type integer
+      local category = sdk.get_native_field(action_id, action_id_type, "_Category")
+      ---@type integer
+      local index = sdk.get_native_field(action_id, action_id_type, "_Index")
+      state:log_action({ category, index })
+
+      if call_processed then return end
+
+      local moveset = state.manager:get_active_moveset(state.game.weapon_type)
+      if not moveset then
+        state.prev_swap = nil
+        return
+      end
+
+      local swap = moveset:get_swap(category, index, state)
+      if not swap then
+        state.prev_swap = nil
+        return
+      end
+
+      state:log_swap(swap)
+
+      Logger:log("info", string.format("Swap: %d %d => %d %d", swap.from[1], swap.from[2], swap.to[1], swap.to[2]),
+        "main")
+
+      state.control.final = swap.modifiers.final and swap.modifiers.final.enabled or false
+
+      call_processed = true
+
+      sdk.set_native_field(action_id, action_id_type, "_Category", swap.to[1])
+      sdk.set_native_field(action_id, action_id_type, "_Index", swap.to[2])
+
+      state.game.hunter_character:call(
+        "changeActionRequest(app.AppActionDef.LAYER, ace.ACTION_ID, System.Boolean)",
+        args[3], action_id, args[5])
+
+      state:log_action({ swap.to[1], swap.to[2] })
+
+      perform_on_swap_effects = true
+
+      return sdk.PreHookResult.SKIP_ORIGINAL
+    end,
+    function()
+      call_processed = false
+    end
+  )
 end
 
 re.on_frame(function()
@@ -89,11 +89,15 @@ re.on_frame(function()
 
   if state.prev_swap then
     for _, effect in ipairs(state.prev_swap.modifiers.effects) do
-      log.info("[on_frame] effect " .. effect:name())
+      if perform_on_swap_effects and effect.on_swap then
+        effect:on_swap(state)
+      end
+
       if effect.on_frame then
         effect:on_frame(state)
       end
     end
+    perform_on_swap_effects = false
   else
     -- Reset important game state
     state.game.hunter_character:call("set_Gravity2", -9.81)
@@ -132,7 +136,13 @@ re.on_draw_ui(function()
 
     _, state.settings.debug = imgui.checkbox("Enable debug", state.settings.debug)
     if state.settings.debug then
+      if state.game.weapon_type then
+        local mv = state.manager:get_active_moveset(state.game.weapon_type)
+        imgui.text(tostring(mv))
+      end
+
       Logger:on_draw_ui()
+
       if state.game:init() then
         imgui.text(string.format("TimeScale: %s",
           state.game.player
