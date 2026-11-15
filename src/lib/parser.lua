@@ -7,7 +7,7 @@ local Lexer, Token = lexer_lib.Lexer, lexer_lib.Token
 local modifier_lib = require("lib.modifiers._mod")
 
 local parsing_utils = require("lib.utils.parsing")
-local process = parsing_utils.process
+local process, builders = parsing_utils.process, parsing_utils.builders
 
 local dump = require("lib.utils.pprint").dump
 
@@ -19,23 +19,30 @@ end
 
 ---@class Parser
 ---@field lexer Lexer
+---@field private defers Defer[]
 local Parser = {}
 Parser.__index = Parser
 
 ---@param input string
 function Parser.new(input)
   return setmetatable({
-    lexer = Lexer.new(input)
-  }, Parser)
+    lexer = Lexer.new(input),
+    defers = {},
+  } --[[@as Parser]], Parser)
 end
 
----@alias ProcessingFunc fun(lexer: Lexer, tok: LexedToken, dst: table, field: string): string?
+---@alias MetaAction "run_defers"
 ---@alias ProcessingTarget [ table, string ] Destination table and field name.
----@alias SequenceTerminal { tok: Token, process?: [ProcessingTarget, ProcessingFunc] }
+---@alias ProcessingFunc fun(lexer: Lexer, tok: LexedToken, dst: table, field: string): string?
+---@alias Process [ProcessingTarget, ProcessingFunc]
+---@alias DeferFunc fun(lexer: Lexer, dst: table, field: string): string?
+---@alias Defer [ProcessingTarget, DeferFunc]
+---@alias SequenceTerminal { tok: Token, process?: Process, defer?: Defer }
 ---@alias SequenceChoice { choices: SequenceStep }
 ---@alias SequenceOptional { optional: SequenceStep, revert?: fun(): nil }
 ---@alias SequenceSubparse { subparse: fun(...): nil }
----@alias SequenceStep SequenceTerminal | SequenceOptional | SequenceChoice | Sequence
+---@alias SequenceMeta { meta: MetaAction }
+---@alias SequenceStep SequenceTerminal | SequenceOptional | SequenceChoice | SequenceMeta | Sequence
 ---@alias Sequence SequenceStep[]
 
 ---@param term SequenceTerminal
@@ -57,6 +64,10 @@ function Parser:parse_sequence_terminal(term)
     local fn = term.process[2]
     local err = fn(self.lexer, cur, target[1], target[2])
     if err then return debug.traceback(err) end
+  end
+
+  if term.defer then
+    self.defers[#self.defers + 1] = term.defer
   end
 end
 
@@ -109,6 +120,22 @@ function Parser:parse_sequence_choice(choice)
   end
 end
 
+---@param meta SequenceMeta
+---@return string? err
+function Parser:parse_sequence_meta(meta)
+  if meta.meta == "run_defers" then
+    local defers = self.defers
+    self.defers = {}
+
+    for _, defer in ipairs(defers) do
+      local target = defer[1]
+      local fn = defer[2]
+      local err = fn(self.lexer, target[1], target[2])
+      if err then return debug.traceback(err) end
+    end
+  end
+end
+
 ---@param step SequenceStep
 ---@return string? err
 function Parser:parse_sequence_dispatch(step)
@@ -118,6 +145,8 @@ function Parser:parse_sequence_dispatch(step)
     return self:parse_sequence_optional(step --[[@as SequenceOptional]])
   elseif step.choices then
     return self:parse_sequence_choice(step --[[@as SequenceChoice]])
+  elseif step.meta then
+    return self:parse_sequence_meta(step --[[@as SequenceMeta]])
   else
     return self:parse_sequence(step --[[@as Sequence]])
   end
@@ -294,7 +323,7 @@ function Parser:parse_swap()
       optional = {
         {
           choices = {
-            { tok = Token.NUMBER, process = { { data, "id" }, process.number } },
+            builders[parsing_utils.ArgType.INTEGER]({ data, "id" }),
             { tok = Token["_"] }
           }
         },
@@ -302,12 +331,12 @@ function Parser:parse_swap()
       },
       revert = function() data.id = -1 end,
     },
-    { tok = Token.NUMBER, process = { { data, "from_1" }, process.number } },
-    { tok = Token.NUMBER, process = { { data, "from_2" }, process.number } },
+    builders[parsing_utils.ArgType.INTEGER]({ data, "from_1" }),
+    builders[parsing_utils.ArgType.INTEGER]({ data, "from_2" }),
     { tok = Token["="] },
     { tok = Token[">"] },
-    { tok = Token.NUMBER, process = { { data, "to_1" }, process.number } },
-    { tok = Token.NUMBER, process = { { data, "to_2" }, process.number } },
+    builders[parsing_utils.ArgType.INTEGER]({ data, "to_1" }),
+    builders[parsing_utils.ArgType.INTEGER]({ data, "to_2" }),
   })
   if err then return nil, err end
 
@@ -376,6 +405,7 @@ Not very useful.
 ====
 0: 2 6 => 2 37 | Final
 _: 2 37 => 2 6 | AfterMove(1, 2) | Final
+_: 1 -1 => 1 2
 2 6 => 2 38 | Final | AfterSwap(1) | Gravity(1.2)
 ]]
 

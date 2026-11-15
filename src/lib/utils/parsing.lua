@@ -55,6 +55,11 @@ local function process_not(lexer, tok, dst, field)
   dst[field] = not dst[field]
 end
 
+---@type DeferFunc
+local function defer_uminus(_, dst, field)
+  dst[field] = -dst[field]
+end
+
 ---@type ProcessingFunc
 local function process_number(lexer, tok, dst, field)
   local str = lexer:from_span(tok.span) --[[@as string]]
@@ -112,7 +117,15 @@ local ArgType = {
 ---@param target ProcessingTarget
 ---@return Sequence
 local function build_integer_arg_sequence(target)
-  return { { tok = Token.NUMBER, process = { target, process_number } } }
+  return {
+    {
+      optional = {
+        { tok = Token["-"], defer = { target, defer_uminus } },
+      },
+    },
+    { tok = Token.NUMBER, process = { target, process_number } },
+    { meta = "run_defers" },
+  }
 end
 
 ---@param target ProcessingTarget
@@ -197,6 +210,7 @@ return {
   ComparisonType = ComparisonType,
   Comparison = Comparison,
   ArgType = ArgType,
+  builders = builders,
   process = {
     ["not"] = process_not,
     number = process_number,

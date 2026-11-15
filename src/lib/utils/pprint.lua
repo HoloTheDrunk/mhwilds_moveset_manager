@@ -23,10 +23,12 @@ local function dump(value, pretty)
       else
         s = s .. (pretty and ',\n' or ', ')
       end
+      -- Stringified Number Key
+      local snk = nil
       if type(k) ~= 'number' then
-        k = '"' .. k .. '"'
+        snk = '"' .. k .. '"'
       end
-      local l = '[' .. k .. '] = ' .. dump(v, pretty)
+      local l = '[' .. (snk or k) .. '] = ' .. dump(v, pretty)
       s = s .. (pretty and indent(l) or l)
     end
     depth = depth - 1
