@@ -7,7 +7,7 @@ local Lexer, Token = lexer_lib.Lexer, lexer_lib.Token
 local modifier_lib = require("lib.modifiers._mod")
 
 local parsing_utils = require("lib.utils.parsing")
-local process, builders = parsing_utils.process, parsing_utils.builders
+local process, builders, ArgType = parsing_utils.process, parsing_utils.builders, parsing_utils.ArgType
 
 local dump = require("lib.utils.pprint").dump
 
@@ -323,7 +323,7 @@ function Parser:parse_swap()
       optional = {
         {
           choices = {
-            builders[parsing_utils.ArgType.INTEGER]({ data, "id" }),
+            builders[ArgType.INTEGER]({ data, "id" }),
             { tok = Token["_"] }
           }
         },
@@ -331,12 +331,12 @@ function Parser:parse_swap()
       },
       revert = function() data.id = -1 end,
     },
-    builders[parsing_utils.ArgType.INTEGER]({ data, "from_1" }),
-    builders[parsing_utils.ArgType.INTEGER]({ data, "from_2" }),
+    builders[ArgType.INTEGER]({ data, "from_1" }),
+    builders[ArgType.INTEGER]({ data, "from_2" }),
     { tok = Token["="] },
     { tok = Token[">"] },
-    builders[parsing_utils.ArgType.INTEGER]({ data, "to_1" }),
-    builders[parsing_utils.ArgType.INTEGER]({ data, "to_2" }),
+    builders[ArgType.INTEGER]({ data, "to_1" }),
+    builders[ArgType.INTEGER]({ data, "to_2" }),
   })
   if err then return nil, err end
 
@@ -405,7 +405,7 @@ Not very useful.
 ====
 0: 2 6 => 2 37 | Final
 _: 2 37 => 2 6 | AfterMove(1, 2) | Final
-_: 1 -1 => 1 2
+_: 1 -1 => 1 167
 2 6 => 2 38 | Final | AfterSwap(1) | Gravity(1.2)
 ]]
 

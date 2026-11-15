@@ -132,6 +132,11 @@ end
 ---@return Sequence
 local function build_number_arg_sequence(target)
   return {
+    {
+      optional = {
+        { tok = Token["-"], defer = { target, defer_uminus } },
+      },
+    },
     { tok = Token.NUMBER, process = { target, process_number } },
     {
       optional = {
@@ -141,7 +146,8 @@ local function build_number_arg_sequence(target)
     },
     {
       optional = { tok = Token["%"], process = { target, process_number_percentage } }
-    }
+    },
+    { meta = "run_defers" },
   }
 end
 
