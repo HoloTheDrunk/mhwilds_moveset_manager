@@ -50,6 +50,10 @@ function Manager:load_config()
       return
     end
     local mvs = self.weapons[wp]
+    if not mvs then
+      self.weapons[wp] = { movesets = {} }
+      mvs = self.weapons[wp]
+    end
     for i, mv in ipairs(mvs.movesets) do
       if mv.name == name then
         mvs.active = i

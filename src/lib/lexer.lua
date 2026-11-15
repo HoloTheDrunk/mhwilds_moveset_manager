@@ -46,6 +46,8 @@ local function is_whitespace(char)
       and char == " " or char == "\n" or char == "\r" or char == "\t"
 end
 
+local debug_enabled = (os.getenv and os.getenv("DEBUG")) ~= nil
+
 ---@class LexedToken
 ---@field tok Token
 ---@field span [integer, integer]
@@ -132,6 +134,10 @@ function Lexer:next()
     self._tok_index = self._tok_index + 1
   end
 
+  if debug_enabled then
+    print(self:debug_tokens())
+  end
+
   return peeked
 end
 
@@ -207,6 +213,18 @@ function Lexer:peek()
   end
 
   return self.tokens[#self.tokens]
+end
+
+function Lexer:debug_tokens()
+  local res = tostring(self._tok_index)
+  for i, tok in ipairs(self.tokens) do
+    if self._tok_index == i then
+      res = res .. " [" .. self:from_span(tok.span) .. "]"
+    else
+      res = res .. " " .. self:from_span(tok.span)
+    end
+  end
+  return res
 end
 
 return { Lexer = Lexer, Token = Token, tok_name = tok_name }

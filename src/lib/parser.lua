@@ -1,3 +1,6 @@
+local debugger = require("debugger")
+debugger.auto_where = 5
+
 local moveset_lib = require("lib.moveset")
 local Moveset, Weapon = moveset_lib.Moveset, moveset_lib.Weapon
 
@@ -17,6 +20,38 @@ function string.trim(str)
   return str:match([[^%s*(.-)%s*$]])
 end
 
+-- Used during development because hand-made parsers are a nightmare to debug.
+local depth = 0
+local debug_enabled = (os.getenv and os.getenv("DEBUG")) ~= nil
+local function pad(text)
+  return ("|   "):rep(depth) .. text
+end
+local function color(text, col)
+  local code = nil
+  if col == "red" then
+    code = "31"
+  elseif col == "green" then
+    code = "33"
+  end
+  if code then
+    return "\x1b[" .. code .. "m" .. text .. "\x1b[0m"
+  else
+    return text
+  end
+end
+---@param text string
+---@param text_color? "red" | "green"
+local function debug_print(text, text_color)
+  if not debug_enabled then return end
+
+  if color then
+    print(pad(color(text, text_color)))
+  else
+    print(pad(text))
+  end
+end
+-- Debug utils end
+
 ---@class Parser
 ---@field lexer Lexer
 ---@field private defers Defer[]
@@ -30,6 +65,20 @@ function Parser.new(input)
     defers = {},
   } --[[@as Parser]], Parser)
 end
+
+-- function Parser:debug_state()
+--   local s = ""
+--   for _, token in ipairs(self.lexer.tokens) do
+--     s = s .. " " .. self.lexer:from_span(token.span)
+--   end
+--   s = s ..
+--       ("\ncurrent: %d -> %s (%s)"):format(
+--         self.lexer._tok_index,
+--         lexer_lib.tok_name[self.lexer.tokens[self.lexer._tok_index].tok],
+--         self.lexer:from_span(self.lexer.tokens[self.lexer._tok_index].span)
+--       )
+--   print(s)
+-- end
 
 ---@alias MetaAction "run_defers"
 ---@alias ProcessingTarget [ table, string ] Destination table and field name.
@@ -48,6 +97,8 @@ end
 ---@param term SequenceTerminal
 ---@return string? err
 function Parser:parse_sequence_terminal(term)
+  debug_print("Terminal: '" .. lexer_lib.tok_name[term.tok] .. "'")
+
   local cur = self.lexer:next()
 
   if not cur or cur.tok ~= term.tok then
@@ -73,6 +124,9 @@ end
 
 ---@param opt SequenceOptional
 function Parser:parse_sequence_optional(opt)
+  debug_print("Optional {")
+  depth = depth + 1
+
   self.lexer:begin_scope()
   local err = self:parse_sequence_dispatch(opt.optional)
   if err then
@@ -80,28 +134,22 @@ function Parser:parse_sequence_optional(opt)
       opt.revert()
     end
     self.lexer:cancel_scope()
+    depth = depth - 1
+    debug_print("} Optional KO", "red")
     return
   end
   self.lexer:end_scope()
-end
 
--- function Parser:debug_state()
---   local s = ""
---   for _, token in ipairs(self.lexer.tokens) do
---     s = s .. " " .. self.lexer:from_span(token.span)
---   end
---   s = s ..
---       ("\ncurrent: %d -> %s (%s)"):format(
---         self.lexer._tok_index,
---         lexer_lib.tok_name[self.lexer.tokens[self.lexer._tok_index].tok],
---         self.lexer:from_span(self.lexer.tokens[self.lexer._tok_index].span)
---       )
---   print(s)
--- end
+  depth = depth - 1
+  debug_print("} Optional OK", "green")
+end
 
 ---@param choice SequenceChoice
 ---@return string? err
 function Parser:parse_sequence_choice(choice)
+  debug_print("Choice {")
+  depth = depth + 1
+
   local success = false
   local err
   for _, option in ipairs(choice.choices) do
@@ -115,14 +163,21 @@ function Parser:parse_sequence_choice(choice)
       break
     end
   end
+
+  depth = depth - 1
   if not success then
+    debug_print("} Choice KO", "red")
     return "No valid next step found while parsing. Last parsing error was: " .. err
+  else
+    debug_print("} Choice OK", "green")
   end
 end
 
 ---@param meta SequenceMeta
 ---@return string? err
 function Parser:parse_sequence_meta(meta)
+  debug_print("Meta: '" .. meta.meta .. "'")
+
   if meta.meta == "run_defers" then
     local defers = self.defers
     self.defers = {}
@@ -155,13 +210,26 @@ end
 ---@param sequence Sequence
 ---@return string? err
 function Parser:parse_sequence(sequence)
+  debug_print("Sequence {")
+  depth = depth + 1
   for _, step in ipairs(sequence) do
-    local tmp = self.lexer:peek()
-    if not tmp then return debug.traceback("Unexpected end of file.") end
+    -- NOTE: commented out because I don't remember why this is checked
+    -- local tmp = self.lexer:peek()
+    -- if not tmp then
+    --   depth = depth - 1
+    --   print(pad(color("} Sequence KO", "red")))
+    --   return debug.traceback("Unexpected end of file.")
+    -- end
 
     local err = self:parse_sequence_dispatch(step)
-    if err then return err end
+    if err then
+      depth = depth - 1
+      debug_print("} Sequence KO", "red")
+      return err
+    end
   end
+  depth = depth - 1
+  debug_print("} Sequence OK", "green")
 end
 
 ---@return Moveset?, string? error
@@ -323,7 +391,8 @@ function Parser:parse_swap()
       optional = {
         {
           choices = {
-            builders[ArgType.INTEGER]({ data, "id" }),
+            -- builders[ArgType.INTEGER]({ data, "id" }),
+            { tok = Token.NUMBER, process = { { data, "id" }, process.number } },
             { tok = Token["_"] }
           }
         },
@@ -346,6 +415,7 @@ function Parser:parse_swap()
     local peeked = self.lexer:peek()
     if not peeked or peeked.tok ~= Token["|"] then break end
     self.lexer:next()
+    -- debugger()
     local error = self:parse_modifier(modifiers)
     if error then return nil, string.format("Swap %d: %s", data.id, error) end
   end
