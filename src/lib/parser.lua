@@ -1,6 +1,3 @@
-local debugger = require("debugger")
-debugger.auto_where = 5
-
 local moveset_lib = require("lib.moveset")
 local Moveset, Weapon = moveset_lib.Moveset, moveset_lib.Weapon
 
@@ -415,7 +412,6 @@ function Parser:parse_swap()
     local peeked = self.lexer:peek()
     if not peeked or peeked.tok ~= Token["|"] then break end
     self.lexer:next()
-    -- debugger()
     local error = self:parse_modifier(modifiers)
     if error then return nil, string.format("Swap %d: %s", data.id, error) end
   end
