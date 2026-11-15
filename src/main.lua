@@ -40,19 +40,23 @@ if change_action_req_method then
       local category = sdk.get_native_field(action_id, action_id_type, "_Category")
       ---@type integer
       local index = sdk.get_native_field(action_id, action_id_type, "_Index")
-      state:log_action({ category, index })
 
-      if call_processed then return end
+      if call_processed then
+        state:log_action({ category, index })
+        return
+      end
 
       local moveset = state.manager:get_active_moveset(state.game.weapon_type)
       if not moveset then
         state.prev_swap = nil
+        state:log_action({ category, index })
         return
       end
 
       local swap = moveset:get_swap(category, index, state)
       if not swap then
         state.prev_swap = nil
+        state:log_action({ category, index })
         return
       end
 
