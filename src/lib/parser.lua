@@ -20,16 +20,21 @@ end
 -- Used during development because hand-made parsers are a nightmare to debug.
 local depth = 0
 local debug_enabled = (os.getenv and os.getenv("DEBUG")) ~= nil
+---@param text string
+---@return string
 local function pad(text)
   return ("|   "):rep(depth) .. text
 end
-local function color(text, col)
-  local code = nil
-  if col == "red" then
-    code = "31"
-  elseif col == "green" then
-    code = "33"
-  end
+local color_codes = {
+  red = 31,
+  green = 32,
+  yellow = 33,
+}
+---@param text string
+---@param text_color? "red" | "green" | "yellow"
+---@return string
+local function color(text, text_color)
+  local code = color_codes[text_color]
   if code then
     return "\x1b[" .. code .. "m" .. text .. "\x1b[0m"
   else
@@ -37,7 +42,8 @@ local function color(text, col)
   end
 end
 ---@param text string
----@param text_color? "red" | "green"
+---@param text_color? "red" | "green" | "yellow"
+---@return nil
 local function debug_print(text, text_color)
   if not debug_enabled then return end
 
@@ -132,7 +138,7 @@ function Parser:parse_sequence_optional(opt)
     end
     self.lexer:cancel_scope()
     depth = depth - 1
-    debug_print("} Optional KO", "red")
+    debug_print("} Optional KO", "yellow")
     return
   end
   self.lexer:end_scope()
@@ -453,7 +459,7 @@ function Parser:parse_modifier(modifiers)
     if re then
       log.warn("Unclassifiable modifier: " .. dump(modifier))
     else
-      print("Unclassifiable modifier: " .. dump(modifier))
+      print(color("Unclassifiable modifier: " .. dump(modifier), "red"))
     end
   end
 end
@@ -469,10 +475,7 @@ weapon: Hammer
 Switches Big Bang I and Overhead Smash I around.
 Not very useful.
 ====
-0: 2 6 => 2 37 | Final
-_: 2 37 => 2 6 | AfterMove(1, 2) | Final
-_: 1 -1 => 1 167
-2 6 => 2 38 | Final | AfterSwap(1) | Gravity(1.2)
+_: 1 -1 => 1 167 | IfSpiritGauge(> 1)
 ]]
 
   if arg and #arg > 0 and arg[1] == "--stdin" then

@@ -87,9 +87,10 @@ local function process_identifier(lexer, tok, dst, field)
 end
 
 ---@type ProcessingFunc
-local function process_comparison(_, tok, dst, field)
+local function process_comparison(_, ltok, dst, field)
   ---@type Comparison
   local comparison = dst[field]
+  local tok = ltok.tok
   if tok == Token["="] then
     if comparison.type == ComparisonType[">"] then
       comparison.type = ComparisonType[">="]
