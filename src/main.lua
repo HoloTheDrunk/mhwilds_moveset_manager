@@ -1,5 +1,6 @@
 local ModState = require("lib.state")
 local state = ModState.new()
+MovesetManagerState = state
 
 local Logger = require("lib.utils.logger")
 Logger:set_name("Moveset Manager")

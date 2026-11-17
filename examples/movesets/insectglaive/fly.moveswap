@@ -1,0 +1,9 @@
+name: Quick idle vault
+author: HoloTheDrunk
+weapon: InsectGlaive
+----
+Makes the Vault from idle go higher.
+====
+_: 2 34 => 2 34 | Gravity(0.2) | MotionSpeed(0.2) | Timescale(5.0) | Final
+_: 2 38 => 1 167
+_: 2 35 => 2 42

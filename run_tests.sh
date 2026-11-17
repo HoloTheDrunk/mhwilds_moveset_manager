@@ -29,7 +29,7 @@ while read -r line; do
     cat "$buf"
     ko=$((ko + 1))
   fi
-done <<< "$(find ../examples -name '*.moveswap')"
+done <<< "$(find ../examples/movesets -name '*.moveswap')"
 
 echo -e "\033[1;32mOK\033[0m: $ok"
 echo -e "\033[1;31mKO\033[0m: $ko"

@@ -3,7 +3,8 @@
 set -e
 
 rm -rf "$WILDS_DIR/reframework/data/movesets"
-cp -r examples "$WILDS_DIR/reframework/data/movesets"
+cp -r examples/movesets "$WILDS_DIR/reframework/data/movesets"
+cp examples/mods/** "$WILDS_DIR/reframework/autorun/"
 
 cd src
 lua compiler.lua

@@ -4,7 +4,7 @@ local Moveset, Weapon = moveset_lib.Moveset, moveset_lib.Weapon
 local lexer_lib = require("lib.lexer")
 local Lexer, Token = lexer_lib.Lexer, lexer_lib.Token
 
-local modifier_lib = require("lib.modifiers._mod")
+local ModifierLib = require("lib.modifiers._mod")
 
 local parsing_utils = require("lib.utils.parsing")
 local process, builders, ArgType = parsing_utils.process, parsing_utils.builders, parsing_utils.ArgType
@@ -441,7 +441,7 @@ function Parser:parse_modifier(modifiers)
 
   local modifier_name = self.lexer:from_span(name.span) --[[@as string]]
 
-  local class = modifier_lib[modifier_name]
+  local class = ModifierLib:get(modifier_name)
   if not class then return string.format("Unrecognized modifier '%s'.", modifier_name) end
 
   local modifier, error = class.parse(self)
@@ -449,11 +449,11 @@ function Parser:parse_modifier(modifiers)
 
   local lower = modifier_name:gsub("([a-z])([A-Z])", "%1_%2"):lower()
 
-  if modifier.check then
+  if (modifier --[[@as Check]]).check then
     modifiers.checks[#modifiers.checks + 1] = modifier --[[@as Check]]
-  elseif modifier.is_effect then
+  elseif (modifier --[[@as Effect]]).is_effect then
     modifiers.effects[#modifiers.effects + 1] = modifier --[[@as Effect]]
-  elseif modifier.is_special then
+  elseif (modifier --[[@as Special]]).is_special then
     modifiers[lower] = modifier
   else
     if re then

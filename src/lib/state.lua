@@ -60,6 +60,7 @@ end
 ---@field settings ModSettings
 ---@field game GameState
 ---@field manager Manager
+---@field external table<string, ExternalMod>
 ---@field control Control
 ---@field actions Action[]
 ---@field swaps integer[]
@@ -80,6 +81,7 @@ function ModState.new()
       },
       game = GameState.new(),
       manager = manager,
+      external = {},
       control = Control.new(),
       actions = {},
       swaps = {},

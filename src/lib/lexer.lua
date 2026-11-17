@@ -158,7 +158,7 @@ end
 function Lexer:_lex_identifier()
   local start = self.index
   self:_read()
-  while is_alpha(self._buf) or is_number(self._buf) do
+  while is_alpha(self._buf) or is_number(self._buf) or self._buf == "_" do
     self:_read()
   end
   self._buf = ""

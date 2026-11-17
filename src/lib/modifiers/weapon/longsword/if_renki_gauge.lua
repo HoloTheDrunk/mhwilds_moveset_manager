@@ -1,5 +1,6 @@
 local utils = require("lib.utils.parsing")
 local ArgType, parse_args, Comparison = utils.ArgType, utils.parse_args, utils.Comparison
+local Weapon = require("lib.moveset").Weapon
 
 ---@class IfRenkiGauge : Check
 ---@field comparison Comparison
@@ -40,7 +41,9 @@ function IfRenkiGauge:disable()
 end
 
 function IfRenkiGauge:check(state)
-  -- TODO:
+  if not state.game.weapon_type == Weapon.LongSword then return false end
+  local renki_gauge = state.game.weapon_handling:call("get_RenkiGauge"):call("get_Value")
+  return self.comparison:check(renki_gauge)
 end
 
 function IfRenkiGauge:__tostring()

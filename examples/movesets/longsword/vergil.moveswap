@@ -1,0 +1,10 @@
+name: Vergil v.1
+author: exend92
+weapon: LongSword
+====
+_: 1 0 => 2 23
+_: 1 1 => 2 23 
+_: 2 12 => 2 23
+_: 2 30 => 2 23 | Final
+_: 2 6 => 2 29
+_: 2 11 => 2 21
